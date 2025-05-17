@@ -1,0 +1,13 @@
+#ifndef MONS_VERSION_HPP
+#define MONS_VERSION_HPP
+
+#define MONS_VERSION_MAJOR 0
+#define MONS_VERSION_MINOR 0
+#define MONS_VERSION_PATCH 0
+
+#define MONS_VERSION_0_0_X 0
+
+// Current version
+#define MONS_VERSION_NUMBER MONS_VERSION_0_0_X
+
+#endif

@@ -1,0 +1,16 @@
+
+if (NOT CMAKE_TOOLCHAIN_FILE)
+  set(VCPKG_ROOT $ENV{VCPKG_ROOT})
+  if (NOT VCPKG_ROOT)
+    include(FetchContent)
+    FetchContent_Declare(vcpkg GIT_REPOSITORY https://github.com/microsoft/vcpkg.git)
+    FetchContent_GetProperties(vcpkg)
+    if(NOT vcpkg_POPULATED)
+      FetchContent_MakeAvailable(vcpkg)
+      execute_process(COMMAND ./${vcpkg_SOURCE_DIR}/bootstrap-vcpkg.sh)
+    endif()
+    set(VCPKG_ROOT ${vcpkg_SOURCE_DIR})
+  endif()
+endif()
+
+set(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake CACHE STRING "CMake toolchain file")

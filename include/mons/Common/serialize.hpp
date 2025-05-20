@@ -10,7 +10,6 @@
 // Unsafe, make sure that the buffer contains data that is of type T.
 
 namespace mons {
-namespace Common {
 namespace Private {
 
 enum DeserializeError {
@@ -184,7 +183,6 @@ void Deserialize(const std::vector<char>& buffer,
   }
 }
 
-} // namespace Common
 } // namespace mons
 
 #endif

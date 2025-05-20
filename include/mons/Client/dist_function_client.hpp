@@ -6,15 +6,15 @@
 
 #include <mlpack.hpp>
 
-#include "../Common/dist_function.hpp"
+#include "../common.hpp"
 
 namespace mons {
 namespace Client {
 
-class DistFunctionClient : public mons::Common::DistFunction
+class DistFunctionClient : public mons::DistFunction
 {
 public:
-  DistFunctionClient(mons::Common::Networking::Network& network);
+  DistFunctionClient(mons::Network& network);
 private:
   // Remotely callable functions
   MONS_ELEM_TYPE
@@ -24,9 +24,6 @@ private:
                        const size_t batchSize);
 
   void Shuffle();
-
-  // Actual function that this is wrapped around
-  MONS_FUNCTION_TYPE function;
 
   // Local copies of data subsets
 

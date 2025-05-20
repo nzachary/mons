@@ -5,12 +5,10 @@
 
 #include <fstream>
 
-#include "../log.hpp"
+#include "log.hpp"
 #include "Message/message_types.hpp"
 
 namespace mons {
-namespace Common {
-namespace Networking {
 
 Network::Network(id_t id) : id(id)
 {
@@ -21,6 +19,8 @@ Network::Network(id_t id) : id(id)
   {
     while (true) {
       const std::shared_ptr<Message::Base> msg = Recieve();
+      if (!msg)
+        continue;
 
       // Call `PropagateMessage` for the first type it successfully casts to
       #define REGISTER(Val) \
@@ -52,8 +52,7 @@ Network::Network(id_t id) : id(id)
   // Start thread to send out heartbeats
   heartThread = std::thread([&]()
   {
-    std::shared_ptr<Message::Heartbeat> beat =
-        std::make_shared<Message::Heartbeat>();
+    Message::Heartbeat beat;
     while (true)
     {
       auto now = std::chrono::system_clock::now();
@@ -62,7 +61,7 @@ Network::Network(id_t id) : id(id)
         Send(beat, id);
       }
 
-      beat->HeartbeatData.beatCount++;
+      beat.HeartbeatData.beatCount++;
 
       sleep(5);
     }
@@ -73,15 +72,38 @@ Network::Network(id_t id) : id(id)
     connected.push_back(0);
 }
 
-void Network::Send(std::shared_ptr<Message::Base> message,
+template <typename MessageType>
+void Network::Send(MessageType message,
                    id_t machine)
 {
   // Set message sender/reciever
-  message->BaseData.sender = id;
-  message->BaseData.reciever = machine;
+  message.BaseData.sender = id;
+  message.BaseData.reciever = machine;
+  // Set message ID
+  message.BaseData.id = idCounter++;
+  std::vector<char> buffer = message.Message::Base::Serialize();
   // Send message
-  std::vector<char> buffer = message->Serialize();
   SendDataRaw(buffer, machine);
+}
+
+template <typename MessageType, typename ResponseType>
+std::future<ResponseType> Network
+::SendAwaitable(MessageType message,
+                id_t machine)
+{
+  Send(message, machine);
+  uint64_t messageId = message->BaseData.id;
+  auto waitable = std::async(std::launch::async, [&]()
+  {
+    ResponseType response;
+    RegisterEvent([&](const ResponseType& recieved)
+    {
+      if (recieved.BaseData.responseTo == messageId)
+        response = std::move(recieved);
+    });
+    return response;
+  });
+  return waitable.future();
 }
 
 #define REGISTER(Val) \
@@ -141,7 +163,12 @@ std::shared_ptr<Message::Base> Network::Recieve()
   }
 
   // Call type's `Deserialize`
-  message->Deserialize(buffer);
+  size_t bytes = message->Deserialize(buffer);
+  if (bytes != header.messageNumBytes - sizeof(header))
+  {
+    Log::Error("Error while deserializing message");
+    return nullptr;
+  }
   // Write the header that was decoded here into message
   message->BaseData = header;
 
@@ -281,8 +308,6 @@ void Network::AddUniqueConnected(id_t machine)
 MONS_REGISTER_MESSAGE_TYPES
 #undef REGISTER
 
-} // namespace Networking
-} // namespace Common
 } // namespace mons
 
 #endif

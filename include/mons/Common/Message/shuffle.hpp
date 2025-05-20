@@ -7,8 +7,6 @@
 #include "base.hpp"
 
 namespace mons {
-namespace Common {
-namespace Networking {
 namespace Message {
 
 class Shuffle : public Base
@@ -16,13 +14,11 @@ class Shuffle : public Base
 protected:
   virtual uint32_t MessageType() const
   {
-    return Networking::Message::MessageTypes::Shuffle;
+    return Message::MessageTypes::Shuffle;
   };
 };
 
 } // namespace Message
-} // namespace Networking
-} // namespace Common
 } // namespace mons
 
 #endif

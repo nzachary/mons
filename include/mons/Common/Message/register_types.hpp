@@ -11,6 +11,8 @@
   REGISTER(UpdatePredictors) \
   REGISTER(UpdateResponses) \
   REGISTER(UpdateWeights) \
-  REGISTER(Shuffle)
+  REGISTER(Shuffle) \
+  REGISTER(EvaluateWithGradient) \
+  REGISTER(Gradient)
 
 #endif

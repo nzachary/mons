@@ -12,8 +12,6 @@
 #include "Message/message_types.hpp"
 
 namespace mons {
-namespace Common {
-namespace Networking {
 
 class Network
 {
@@ -24,8 +22,15 @@ public:
   // Set local machine ID; expected to match ID in network config file
   Network(id_t id);
   // Send some message to the specified machine.
-  void Send(std::shared_ptr<Message::Base> data,
+  template <typename MessageType>
+  void Send(MessageType data,
             id_t machine);
+  
+  // Send some message to the specified machine and get a future that contains a response
+  template <typename MessageType, typename ResponseType>
+  std::future<ResponseType>
+  SendAwaitable(MessageType data,
+                id_t machine);
 
   // `RegisterEvent` Registers a callback to run when a message is recieved
   #define REGISTER(Val) \
@@ -71,10 +76,10 @@ private:
   std::vector<std::chrono::time_point<std::chrono::system_clock>> lastHeartbeat;
   // List of machines we want to let know that we are alive
   std::vector<id_t> connected;
+  // Message ID counter
+  uint64_t idCounter = 1;
 };
 
-} // namespace Networking
-} // namespace Common
 } // namespace mons
 
 #include "network_impl.hpp"

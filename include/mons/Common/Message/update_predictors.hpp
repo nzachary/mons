@@ -7,8 +7,6 @@
 #include "tensor.hpp"
 
 namespace mons {
-namespace Common {
-namespace Networking {
 namespace Message {
 
 class UpdatePredictors : public TensorType
@@ -31,13 +29,11 @@ public:
 protected:
   virtual uint32_t MessageType() const
   {
-    return Networking::Message::MessageTypes::UpdatePredictors;
+    return Message::MessageTypes::UpdatePredictors;
   };
 };
 
 } // namespace Message
-} // namespace Networking
-} // namespace Common
 } // namespace mons
 
 #endif

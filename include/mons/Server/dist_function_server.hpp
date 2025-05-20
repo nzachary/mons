@@ -4,14 +4,15 @@
 #ifndef MONS_SERVER_DIST_FUNCTION_SERVER_HPP
 #define MONS_SERVER_DIST_FUNCTION_SERVER_HPP
 
-#include "../Common/dist_function.hpp"
+#include "../common.hpp"
 
 namespace mons {
 namespace Server {
 
-class DistFunctionServer : public mons::Common::DistFunction
+class DistFunctionServer : public mons::DistFunction
 {
 public:
+  DistFunctionServer(mons::Network& network);
   // Training without an optimizer
   template<typename OptimizerType, typename... CallbackTypes>
   MONS_ELEM_TYPE Train(MONS_PREDICTOR_TYPE predictors,
@@ -36,7 +37,7 @@ public:
                              MONS_WEIGHT_TYPE weights,
                              OptimizerType& optimizer,
                              CallbackTypes&&... callbacks);
-
+private:
   // Utility functions
   // Set predictors, responses, and weights
   void ResetData(MONS_PREDICTOR_TYPE predictors,
@@ -68,6 +69,12 @@ public:
   size_t NumFunctions() const;
 
   void Shuffle();
+
+  // List of connected clients
+  std::vector<id_t> clients = { 1 };
+
+  // Number of functions since we don't hold on to training data
+  size_t numFunctions;
 };
 
 } // namespace Server

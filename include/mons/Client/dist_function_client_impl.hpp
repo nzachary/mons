@@ -2,15 +2,15 @@
 #define MONS_CLIENT_DIST_FUNCTION_CLIENT_IMPL_HPP
 
 #include "dist_function_client.hpp"
-#include "../Common/Networking/network.hpp"
 
 namespace mons {
 namespace Client {
 
 DistFunctionClient
-::DistFunctionClient(mons::Common::Networking::Network& network)
+::DistFunctionClient(mons::Network& network)
+: DistFunction(network)
 {
-  using namespace mons::Common::Networking;
+  this->network = &network;
   // Register events to update predictors, responses, and weights
   network.RegisterEvent([&](const Message::UpdatePredictors& message)
   {
@@ -29,6 +29,25 @@ DistFunctionClient
   network.RegisterEvent([&](const Message::Shuffle& message)
   {
     Shuffle();
+  });
+  network.RegisterEvent([&](const Message::EvaluateWithGradient& message)
+  {
+    // Evaluate with gradient
+    MONS_MAT_TYPE parameters, gradient;
+    message.GetTensor(parameters);
+
+    uint64_t begin, batchSize;
+    begin = message.EvaluateWithGradientData.begin;
+    batchSize = message.EvaluateWithGradientData.batchSize;
+
+    EvaluateWithGradient(parameters, begin, gradient, batchSize);
+
+    // Return the result
+    Message::Gradient gradientMessage;
+    gradientMessage.SetTensor(gradient);
+    gradientMessage.BaseData.responseTo = message.BaseData.id;
+    
+    network.Send(gradientMessage, 0);
   });
 }
 

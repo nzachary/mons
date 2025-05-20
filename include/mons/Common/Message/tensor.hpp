@@ -7,12 +7,10 @@
 #include <armadillo>
 #include <mlpack/core/util/arma_traits.hpp>
 
-#include "../../../config.hpp"
+#include "../../config.hpp"
 #include "base.hpp"
 
 namespace mons {
-namespace Common {
-namespace Networking {
 namespace Message {
 
 template <typename eT>
@@ -158,35 +156,27 @@ protected:
       Log::FatalError("Incorrect number of elements in tensor");
     }
 
-    mons::Common::Serialize<uint16_t>(buffer,
-        TensorData.numDimensions);
-    mons::Common::Serialize<std::vector<uint64_t>>(buffer,
-        TensorData.dimensions);
-    mons::Common::Serialize<std::vector<eT>>(buffer,
-        TensorData.data);
+    mons::Serialize(buffer, TensorData.numDimensions);
+    mons::Serialize(buffer, TensorData.dimensions);
+    mons::Serialize(buffer, TensorData.data);
   };
 
   virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
   {
     Base::Deserialize(buffer, begin);
 
-    mons::Common::Deserialize<uint16_t>(buffer,
-        TensorData.numDimensions, begin);
+    mons::Deserialize(buffer, TensorData.numDimensions, begin);
     TensorData.dimensions.resize(TensorData.numDimensions);
-    mons::Common::Deserialize<std::vector<uint64_t>>(buffer,
-        TensorData.dimensions, begin);
+    mons::Deserialize(buffer, TensorData.dimensions, begin);
     size_t numElem = 1;
     for (const uint64_t& len : TensorData.dimensions)
       numElem *= len;
     TensorData.data.resize(numElem);
-    mons::Common::Deserialize<std::vector<eT>>(buffer,
-        TensorData.data, begin);
+    mons::Deserialize(buffer, TensorData.data, begin);
   };
 };
 
 } // namespace Message
-} // namespace Networking
-} // namespace Common
 } // namespace mons
 
 #endif

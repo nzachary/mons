@@ -8,7 +8,6 @@
 #include <iostream>
 
 namespace mons {
-namespace Common {
 
 class Log
 {
@@ -49,7 +48,6 @@ private:
   }
 };
 
-} // namespace Common
 } // namespace mons
 
 #endif

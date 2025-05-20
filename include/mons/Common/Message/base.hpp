@@ -4,14 +4,12 @@
 #include <vector>
 #include <stdint.h>
 
-#include "../../../version.hpp"
-#include "../../serialize.hpp"
-#include "../../log.hpp"
+#include "../../version.hpp"
+#include "../serialize.hpp"
+#include "../log.hpp"
 #include "register_types.hpp"
 
 namespace mons {
-namespace Common {
-namespace Networking {
 namespace Message {
 
 // Abstract class for messages that can be sent/recieved over network, do not try to send this
@@ -38,10 +36,10 @@ public:
     // Version of api used when creating this
     uint32_t apiVersion = MONS_VERSION_NUMBER;
 
-    // Type ID of message being sent; Dummy
+    // Type ID of message being sent; Set in `vector<char> Base::Serialize`
     uint32_t messageType = -1;
 
-    // Total number of bytes in message; Dummy
+    // Total number of bytes in message; Set in `vector<char> Base::Serialize`
     uint32_t messageNumBytes = 0;
   
     // Sending machine's ID
@@ -49,6 +47,13 @@ public:
   
     // Recieving machine's ID
     uint32_t reciever = 0;
+  
+    // ID is equal to the number of messages the sender has sent out
+    uint32_t id = 0;
+
+    // Mark the message as a response to another message
+    // Set it to the original message's ID
+    uint32_t responseTo = 0;
   } BaseData;
 
   // Write message as a byte buffer
@@ -56,11 +61,10 @@ public:
   {
     std::vector<char> buffer;
     Serialize(buffer);
-    mons::Common::Serialize<uint64_t>(buffer, MessageType(),
-        offsetof(BaseDataStruct,
+    // Overwrite `messageType` and `messageNumBytes`
+    mons::Serialize(buffer, MessageType(), offsetof(BaseDataStruct,
         BaseDataStruct::messageType));
-    mons::Common::Serialize<uint64_t>(buffer, buffer.size(),
-        offsetof(BaseDataStruct,
+    mons::Serialize(buffer, buffer.size(), offsetof(BaseDataStruct,
         BaseDataStruct::messageNumBytes));
     return buffer;
   };
@@ -81,16 +85,15 @@ public:
     size_t begin = 0;
     BaseDataStruct tempStruct;
 
-    mons::Common::Deserialize<uint32_t>(buffer,
-        tempStruct.apiVersion, begin);
-    mons::Common::Deserialize<uint32_t>(buffer,
-        tempStruct.messageType, begin);
-    mons::Common::Deserialize<uint32_t>(buffer,
-        tempStruct.messageNumBytes, begin);
-    mons::Common::Deserialize<uint32_t>(buffer,
-        tempStruct.sender, begin);
-    mons::Common::Deserialize<uint32_t>(buffer,
-        tempStruct.reciever, begin);
+    mons::Deserialize(buffer, tempStruct.apiVersion, begin);
+    mons::Deserialize(buffer, tempStruct.messageType, begin);
+    mons::Deserialize(buffer, tempStruct.messageNumBytes, begin);
+    mons::Deserialize(buffer, tempStruct.sender, begin);
+    mons::Deserialize(buffer, tempStruct.reciever, begin);
+    mons::Deserialize(buffer, tempStruct.id, begin);
+    mons::Deserialize(buffer, tempStruct.responseTo, begin);
+    
+    assert(begin == sizeof(BaseDataStruct));
 
     return tempStruct;
   }
@@ -98,16 +101,15 @@ protected:
   // Append data to a byte buffer
   virtual void Serialize(std::vector<char>& buffer)
   {
-    mons::Common::Serialize<uint32_t>(buffer,
-        BaseData.apiVersion);
-    mons::Common::Serialize<uint32_t>(buffer, // Dummy - see `Serialize` above
-        BaseData.messageType);
-    mons::Common::Serialize<uint32_t>(buffer, // Dummy - see `Serialize` above
-        BaseData.messageNumBytes);
-    mons::Common::Serialize<uint32_t>(buffer,
-        BaseData.sender);
-    mons::Common::Serialize<uint32_t>(buffer,
-        BaseData.reciever);
+    mons::Serialize(buffer, BaseData.apiVersion);
+    // Dummy - see `Serialize` above
+    mons::Serialize(buffer, BaseData.messageType);
+    // Dummy - see `Serialize` above
+    mons::Serialize(buffer, BaseData.messageNumBytes);
+    mons::Serialize(buffer, BaseData.sender);
+    mons::Serialize(buffer, BaseData.reciever);
+    mons::Serialize(buffer, BaseData.id);
+    mons::Serialize(buffer, BaseData.responseTo);
   };
   // Parse serialized buffer
   virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
@@ -119,8 +121,6 @@ protected:
 };
 
 } // namespace Message
-} // namespace Networking
-} // namespace Common
 } // namespace mons
 
 #endif

@@ -11,5 +11,7 @@
 #include "update_responses.hpp"
 #include "update_weights.hpp"
 #include "shuffle.hpp"
+#include "evaluate_with_gradient.hpp"
+#include "gradient.hpp"
 
 #endif

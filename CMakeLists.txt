@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-option(USE_VCPKG "Use vcpkg to manage dependencies" ON)
+option(USE_VCPKG "Use vcpkg to manage dependencies" OFF)
 
 if(USE_VCPKG)
   message(STATUS "Using vcpkg")

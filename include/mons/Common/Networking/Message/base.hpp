@@ -1,5 +1,5 @@
-#ifndef MONS_COMMON_MESSAGE_NETWORK_MESSAGE_HPP
-#define MONS_COMMON_MESSAGE_NETWORK_MESSAGE_HPP
+#ifndef MONS_COMMON_MESSAGE_BASE_HPP
+#define MONS_COMMON_MESSAGE_BASE_HPP
 
 #include <vector>
 #include <stdint.h>
@@ -30,10 +30,10 @@ enum MessageType
 
 } // namespace MessageTypes
 
-class NetworkMessage
+class Base
 {
 public:
-  struct NetworkMessageDataStruct
+  struct BaseDataStruct
   {
     // Version of api used when creating this
     uint32_t apiVersion = MONS_VERSION_NUMBER;
@@ -49,7 +49,7 @@ public:
   
     // Recieving machine's ID
     uint32_t reciever = 0;
-  } NetworkMessageData;
+  } BaseData;
 
   // Write message as a byte buffer
   std::vector<char> Serialize()
@@ -57,11 +57,11 @@ public:
     std::vector<char> buffer;
     Serialize(buffer);
     mons::Common::Serialize<uint64_t>(buffer, MessageType(),
-        offsetof(NetworkMessageDataStruct,
-        NetworkMessageDataStruct::messageType));
+        offsetof(BaseDataStruct,
+        BaseDataStruct::messageType));
     mons::Common::Serialize<uint64_t>(buffer, buffer.size(),
-        offsetof(NetworkMessageDataStruct,
-        NetworkMessageDataStruct::messageNumBytes));
+        offsetof(BaseDataStruct,
+        BaseDataStruct::messageNumBytes));
     return buffer;
   };
 
@@ -74,12 +74,12 @@ public:
   };
 
   // Decode message metadata from a buffer
-  static NetworkMessageDataStruct
+  static BaseDataStruct
   DecodeHeader(std::vector<char>& buffer)
   {
-    assert(buffer.size() == sizeof(NetworkMessageDataStruct));
+    assert(buffer.size() == sizeof(BaseDataStruct));
     size_t begin = 0;
-    NetworkMessageDataStruct tempStruct;
+    BaseDataStruct tempStruct;
 
     mons::Common::Deserialize<uint32_t>(buffer,
         tempStruct.apiVersion, begin);
@@ -99,15 +99,15 @@ protected:
   virtual void Serialize(std::vector<char>& buffer)
   {
     mons::Common::Serialize<uint32_t>(buffer,
-        NetworkMessageData.apiVersion);
+        BaseData.apiVersion);
     mons::Common::Serialize<uint32_t>(buffer, // Dummy - see `Serialize` above
-        NetworkMessageData.messageType);
+        BaseData.messageType);
     mons::Common::Serialize<uint32_t>(buffer, // Dummy - see `Serialize` above
-        NetworkMessageData.messageNumBytes);
+        BaseData.messageNumBytes);
     mons::Common::Serialize<uint32_t>(buffer,
-        NetworkMessageData.sender);
+        BaseData.sender);
     mons::Common::Serialize<uint32_t>(buffer,
-        NetworkMessageData.reciever);
+        BaseData.reciever);
   };
   // Parse serialized buffer
   virtual void Deserialize(std::vector<char>& buffer, size_t& begin)

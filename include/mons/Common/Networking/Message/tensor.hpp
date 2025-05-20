@@ -1,14 +1,14 @@
 /*
  * Message containing a dense tensor
  */
-#ifndef MONS_COMMON_MESSAGE_TENSOR_MESSAGE_HPP
-#define MONS_COMMON_MESSAGE_TENSOR_MESSAGE_HPP
+#ifndef MONS_COMMON_MESSAGE_TENSOR_HPP
+#define MONS_COMMON_MESSAGE_TENSOR_HPP
 
 #include <armadillo>
 #include <mlpack/core/util/arma_traits.hpp>
 
 #include "../../../config.hpp"
-#include "network_message.hpp"
+#include "base.hpp"
 
 namespace mons {
 namespace Common {
@@ -16,10 +16,10 @@ namespace Networking {
 namespace Message {
 
 template <typename eT>
-class TensorMessageType : public NetworkMessage
+class TensorType : public Base
 {
 public:
-  struct TensorMessageDataStruct
+  struct TensorDataStruct
   {
     // Number of dimensions
     uint16_t numDimensions;
@@ -27,12 +27,12 @@ public:
     std::vector<uint64_t> dimensions;
     // Element data
     std::vector<eT> data;
-  } TensorMessageData;
+  } TensorData;
 
   // Checks if the contained tensor is 1, 2, or 3 dimensional
-  bool TensorIsVector() const { return TensorMessageData.numDimensions == 1; };
-  bool TensorIsMatrix() const { return TensorMessageData.numDimensions == 2; };
-  bool TensorIsCube() const { return TensorMessageData.numDimensions == 3; };
+  bool TensorIsVector() const { return TensorData.numDimensions == 1; };
+  bool TensorIsMatrix() const { return TensorData.numDimensions == 2; };
+  bool TensorIsCube() const { return TensorData.numDimensions == 3; };
 
   // TODO: bandicoot types
   // Gets the contained tensor as type T
@@ -46,14 +46,14 @@ public:
     if (!TensorIsVector())
     {
       Log::Error("Trying to get tensor as row but dimensionality is " +
-          std::to_string(TensorMessageData.numDimensions));
+          std::to_string(TensorData.numDimensions));
       new (&tensor) T();
       return;
     }
     
     // Placement new to avoid copy operation
-    new (&tensor) T(TensorMessageData.data.data(),
-        TensorMessageData.dimensions[0]);
+    new (&tensor) T(TensorData.data.data(),
+        TensorData.dimensions[0]);
   }
 
   template <typename T>
@@ -66,14 +66,14 @@ public:
     if (!TensorIsMatrix())
     {
       Log::Error("Trying to get tensor as matrix but dimensionality is " +
-          std::to_string(TensorMessageData.numDimensions));
+          std::to_string(TensorData.numDimensions));
       new (&tensor) T();
       return;
     }
     
     // Placement new to avoid copy operation
-    new (&tensor) T(TensorMessageData.data.data(),
-        TensorMessageData.dimensions[0], TensorMessageData.dimensions[1]);
+    new (&tensor) T(TensorData.data.data(),
+        TensorData.dimensions[0], TensorData.dimensions[1]);
   }
 
   template <typename T>
@@ -86,15 +86,15 @@ public:
     if (!TensorIsCube())
     {
       Log::Error("Trying to get tensor as cube but dimensionality is " +
-          std::to_string(TensorMessageData.numDimensions));
+          std::to_string(TensorData.numDimensions));
       new (&tensor) T();
       return;
     }
     
     // Placement new to avoid copy operation
-    new (&tensor) T(TensorMessageData.data.data(),
-        TensorMessageData.dimensions[0], TensorMessageData.dimensions[1],
-        TensorMessageData.dimensions[1]);
+    new (&tensor) T(TensorData.data.data(),
+        TensorData.dimensions[0], TensorData.dimensions[1],
+        TensorData.dimensions[1]);
   }
 
   // Sets the tensor to be sent
@@ -105,10 +105,10 @@ public:
                    std::is_same<typename T::elem_type, eT>::value
                  >* = 0)
   {
-    TensorMessageData.numDimensions = 1;
-    TensorMessageData.dimensions = { tensor.n_elem };
-    TensorMessageData.data.resize(tensor.n_elem);
-    std::memcpy(TensorMessageData.data.data(), tensor.memptr(),
+    TensorData.numDimensions = 1;
+    TensorData.dimensions = { tensor.n_elem };
+    TensorData.data.resize(tensor.n_elem);
+    std::memcpy(TensorData.data.data(), tensor.memptr(),
         tensor.n_elem * sizeof(eT));
   }
 
@@ -119,10 +119,10 @@ public:
                    std::is_same<typename T::elem_type, eT>::value
                  >* = 0)
   {
-    TensorMessageData.numDimensions = 2;
-    TensorMessageData.dimensions = { tensor.n_rows, tensor.n_cols };
-    TensorMessageData.data.resize(tensor.n_elem);
-    std::memcpy(TensorMessageData.data.data(), tensor.memptr(),
+    TensorData.numDimensions = 2;
+    TensorData.dimensions = { tensor.n_rows, tensor.n_cols };
+    TensorData.data.resize(tensor.n_elem);
+    std::memcpy(TensorData.data.data(), tensor.memptr(),
         tensor.n_elem * sizeof(eT));
   }
 
@@ -133,54 +133,54 @@ public:
                    std::is_same<typename T::elem_type, eT>::value
                  >* = 0)
   {
-    TensorMessageData.numDimensions = 3;
-    TensorMessageData.dimensions = { tensor.n_rows, tensor.n_cols,
+    TensorData.numDimensions = 3;
+    TensorData.dimensions = { tensor.n_rows, tensor.n_cols,
         tensor.n_slices};
-    TensorMessageData.data.resize(tensor.n_elem);
-    std::memcpy(TensorMessageData.data.data(), tensor.memptr(),
+    TensorData.data.resize(tensor.n_elem);
+    std::memcpy(TensorData.data.data(), tensor.memptr(),
         tensor.n_elem * sizeof(eT));
   }
 protected:
   virtual void Serialize(std::vector<char>& buffer)
   {
-    NetworkMessage::Serialize(buffer);
+    Base::Serialize(buffer);
 
     // Verify data is correctly formatted
-    if (TensorMessageData.numDimensions != TensorMessageData.dimensions.size())
+    if (TensorData.numDimensions != TensorData.dimensions.size())
     {
       Log::FatalError("Incorrect number of dimensions in tensor");
     }
     size_t numElem = 1;
-    for (const uint64_t& len : TensorMessageData.dimensions)
+    for (const uint64_t& len : TensorData.dimensions)
       numElem *= len;
-    if (numElem != TensorMessageData.data.size())
+    if (numElem != TensorData.data.size())
     {
       Log::FatalError("Incorrect number of elements in tensor");
     }
 
     mons::Common::Serialize<uint16_t>(buffer,
-        TensorMessageData.numDimensions);
+        TensorData.numDimensions);
     mons::Common::Serialize<std::vector<uint64_t>>(buffer,
-        TensorMessageData.dimensions);
+        TensorData.dimensions);
     mons::Common::Serialize<std::vector<eT>>(buffer,
-        TensorMessageData.data);
+        TensorData.data);
   };
 
   virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
   {
-    NetworkMessage::Deserialize(buffer, begin);
+    Base::Deserialize(buffer, begin);
 
     mons::Common::Deserialize<uint16_t>(buffer,
-        TensorMessageData.numDimensions, begin);
-    TensorMessageData.dimensions.resize(TensorMessageData.numDimensions);
+        TensorData.numDimensions, begin);
+    TensorData.dimensions.resize(TensorData.numDimensions);
     mons::Common::Deserialize<std::vector<uint64_t>>(buffer,
-        TensorMessageData.dimensions, begin);
+        TensorData.dimensions, begin);
     size_t numElem = 1;
-    for (const uint64_t& len : TensorMessageData.dimensions)
+    for (const uint64_t& len : TensorData.dimensions)
       numElem *= len;
-    TensorMessageData.data.resize(numElem);
+    TensorData.data.resize(numElem);
     mons::Common::Deserialize<std::vector<eT>>(buffer,
-        TensorMessageData.data, begin);
+        TensorData.data, begin);
   };
 };
 

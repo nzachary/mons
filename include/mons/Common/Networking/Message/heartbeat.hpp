@@ -1,44 +1,44 @@
 /*
  * Message letting the reciever know that the sender is still online
  */
-#ifndef MONS_COMMON_MESSAGE_HEARTBEAT_MESSAGE_HPP
-#define MONS_COMMON_MESSAGE_HEARTBEAT_MESSAGE_HPP
+#ifndef MONS_COMMON_MESSAGE_HEARTBEAT_HPP
+#define MONS_COMMON_MESSAGE_HEARTBEAT_HPP
 
-#include "network_message.hpp"
+#include "base.hpp"
 
 namespace mons {
 namespace Common {
 namespace Networking {
 namespace Message {
 
-class HeartbeatMessage : public NetworkMessage
+class Heartbeat : public Base
 {
 public:
-  struct HeartbeatMessageDataStruct
+  struct HeartbeatDataStruct
   {
     // Number that is incremented every time this is sent
     uint32_t beatCount;
-  } HeartbeatMessageData;
+  } HeartbeatData;
 protected:
   virtual void Serialize(std::vector<char>& buffer)
   {
-    NetworkMessage::Serialize(buffer);
+    Base::Serialize(buffer);
 
     mons::Common::Serialize<uint32_t>(buffer,
-        HeartbeatMessageData.beatCount);
+        HeartbeatData.beatCount);
   };
 
   virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
   {
-    NetworkMessage::Deserialize(buffer, begin);
+    Base::Deserialize(buffer, begin);
 
     mons::Common::Deserialize<uint32_t>(buffer,
-        HeartbeatMessageData.beatCount, begin);
+        HeartbeatData.beatCount, begin);
   };
 
   virtual uint32_t MessageType() const
   {
-    return Networking::Message::MessageTypes::HeartbeatMessage;
+    return Networking::Message::MessageTypes::Heartbeat;
   };
 };
 

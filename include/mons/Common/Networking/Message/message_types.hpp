@@ -4,12 +4,12 @@
 #ifndef MONS_COMMON_MESSAGE_MESSAGE_TYPES_HPP
 #define MONS_COMMON_MESSAGE_MESSAGE_TYPES_HPP
 
-#include "network_message.hpp"
-#include "tensor_message.hpp"
-#include "heartbeat_message.hpp"
-#include "update_predictors_message.hpp"
-#include "update_responses_message.hpp"
-#include "update_weights_message.hpp"
-#include "shuffle_message.hpp"
+#include "base.hpp"
+#include "tensor.hpp"
+#include "heartbeat.hpp"
+#include "update_predictors.hpp"
+#include "update_responses.hpp"
+#include "update_weights.hpp"
+#include "shuffle.hpp"
 
 #endif

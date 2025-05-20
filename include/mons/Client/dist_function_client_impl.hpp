@@ -12,18 +12,22 @@ DistFunctionClient
 {
   using namespace mons::Common::Networking;
   // Register events to update predictors, responses, and weights
-  network.RegisterEvent([&](const Message::UpdatePredictorsMessage& message) {
+  network.RegisterEvent([&](const Message::UpdatePredictors& message)
+  {
     message.GetTensor(predictors);
   });
-  network.RegisterEvent([&](const Message::UpdateResponsesMessage& message) {
+  network.RegisterEvent([&](const Message::UpdateResponses& message)
+  {
     message.GetTensor(responses);
   });
-  network.RegisterEvent([&](const Message::UpdateWeightsMessage& message) {
+  network.RegisterEvent([&](const Message::UpdateWeights& message)
+  {
     message.GetTensor(weights);
   });
 
   // Register functions that can be remotely called
-  network.RegisterEvent([&](const Message::ShuffleMessage& message) {
+  network.RegisterEvent([&](const Message::Shuffle& message)
+  {
     Shuffle();
   });
 }

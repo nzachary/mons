@@ -17,9 +17,9 @@ void StartServer()
 {
   Network serverNetwork(0);
 
-  serverNetwork.RegisterEvent([](const Message::HeartbeatMessage& message)
+  serverNetwork.RegisterEvent([](const Message::Heartbeat& message)
   {
-    std::cout << "Recieved: " << message.HeartbeatMessageData.beatCount << std::endl;
+    std::cout << "Recieved: " << message.HeartbeatData.beatCount << std::endl;
   });
   
   InfiniteWait();

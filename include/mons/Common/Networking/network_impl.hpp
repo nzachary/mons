@@ -20,7 +20,7 @@ Network::Network(id_t id) : id(id)
   listenerThread = std::thread([&]()
   {
     while (true) {
-      const std::shared_ptr<Message::NetworkMessage> msg = Recieve();
+      const std::shared_ptr<Message::Base> msg = Recieve();
 
       // Call `PropagateMessage` for the first type it successfully casts to
       #define REGISTER(Val) \
@@ -35,9 +35,9 @@ Network::Network(id_t id) : id(id)
   });
 
   // Add heartbeat listener to bump `lastHeartbeat`
-  RegisterEvent([&](const Message::HeartbeatMessage& message)
+  RegisterEvent([&](const Message::Heartbeat& message)
   {
-    id_t sender = message.NetworkMessageData.sender;
+    id_t sender = message.BaseData.sender;
     if (sender > lastHeartbeat.size())
     {
       Log::Error("Recieved message from invalid machine " +
@@ -52,8 +52,8 @@ Network::Network(id_t id) : id(id)
   // Start thread to send out heartbeats
   heartThread = std::thread([&]()
   {
-    std::shared_ptr<Message::HeartbeatMessage> beat =
-        std::make_shared<Message::HeartbeatMessage>();
+    std::shared_ptr<Message::Heartbeat> beat =
+        std::make_shared<Message::Heartbeat>();
     while (true)
     {
       auto now = std::chrono::system_clock::now();
@@ -62,7 +62,7 @@ Network::Network(id_t id) : id(id)
         Send(beat, id);
       }
 
-      beat->HeartbeatMessageData.beatCount++;
+      beat->HeartbeatData.beatCount++;
 
       sleep(5);
     }
@@ -73,12 +73,12 @@ Network::Network(id_t id) : id(id)
     connected.push_back(0);
 }
 
-void Network::Send(std::shared_ptr<Message::NetworkMessage> message,
+void Network::Send(std::shared_ptr<Message::Base> message,
                    id_t machine)
 {
   // Set message sender/reciever
-  message->NetworkMessageData.sender = id;
-  message->NetworkMessageData.reciever = machine;
+  message->BaseData.sender = id;
+  message->BaseData.reciever = machine;
   // Send message
   std::vector<char> buffer = message->Serialize();
   SendDataRaw(buffer, machine);
@@ -92,7 +92,7 @@ void Network::RegisterEvent(std::function<void(const Message::Val&)> callback) \
 MONS_REGISTER_MESSAGE_TYPES
 #undef REGISTER
 
-std::shared_ptr<Message::NetworkMessage> Network::Recieve()
+std::shared_ptr<Message::Base> Network::Recieve()
 {
   // Accept incoming connection
   asio::io_context context;
@@ -103,13 +103,13 @@ std::shared_ptr<Message::NetworkMessage> Network::Recieve()
   LogError(ec);
 
   // Recieve header
-  Message::NetworkMessage::NetworkMessageDataStruct header;
+  Message::Base::BaseDataStruct header;
   std::vector<char> buffer(sizeof(header));
   socket.read_some(asio::buffer(buffer), ec);
   LogError(ec);
 
   // Try to decode the header
-  header = Message::NetworkMessage::DecodeHeader(buffer);
+  header = Message::Base::DecodeHeader(buffer);
 
   // Check message API version
   if (header.apiVersion != MONS_VERSION_NUMBER) {
@@ -120,7 +120,7 @@ std::shared_ptr<Message::NetworkMessage> Network::Recieve()
   }
 
   // Create a shared_ptr with the correct underlying class
-  std::shared_ptr<Message::NetworkMessage> message(nullptr);
+  std::shared_ptr<Message::Base> message(nullptr);
   #define REGISTER(Val) case Message::MessageTypes::Val: \
       message = std::make_shared<Message::Val>(); break;
   switch (header.messageType)
@@ -143,7 +143,7 @@ std::shared_ptr<Message::NetworkMessage> Network::Recieve()
   // Call type's `Deserialize`
   message->Deserialize(buffer);
   // Write the header that was decoded here into message
-  message->NetworkMessageData = header;
+  message->BaseData = header;
 
   // Return the parsed message
   return message;

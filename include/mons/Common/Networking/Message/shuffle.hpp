@@ -1,22 +1,22 @@
 /*
  * Message telling the client to shuffle data
  */
-#ifndef MONS_COMMON_MESSAGE_SHUFFLE_MESSAGE_HPP
-#define MONS_COMMON_MESSAGE_SHUFFLE_MESSAGE_HPP
+#ifndef MONS_COMMON_MESSAGE_SHUFFLE_HPP
+#define MONS_COMMON_MESSAGE_SHUFFLE_HPP
 
-#include "network_message.hpp"
+#include "base.hpp"
 
 namespace mons {
 namespace Common {
 namespace Networking {
 namespace Message {
 
-class ShuffleMessage : public NetworkMessage
+class Shuffle : public Base
 {
 protected:
   virtual uint32_t MessageType() const
   {
-    return Networking::Message::MessageTypes::ShuffleMessage;
+    return Networking::Message::MessageTypes::Shuffle;
   };
 };
 

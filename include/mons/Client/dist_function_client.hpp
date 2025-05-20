@@ -4,6 +4,8 @@
 #ifndef MONS_CLIENT_DIST_FUNCTION_CLIENT_HPP
 #define MONS_CLIENT_DIST_FUNCTION_CLIENT_HPP
 
+#include <mlpack.hpp>
+
 #include "../Common/dist_function.hpp"
 
 namespace mons {
@@ -13,17 +15,20 @@ class DistFunctionClient : public mons::Common::DistFunction
 {
 public:
   DistFunctionClient(mons::Common::Networking::Network& network);
-
+private:
   // Remotely callable functions
   MONS_ELEM_TYPE
   EvaluateWithGradient(const MONS_MAT_TYPE& parameters,
                        const size_t begin,
                        MONS_MAT_TYPE& gradient,
                        const size_t batchSize);
-  
+
   void Shuffle();
-private:
-  // Local copies of subsets
+
+  // Actual function that this is wrapped around
+  MONS_FUNCTION_TYPE function;
+
+  // Local copies of data subsets
 
   // Set of input data points.
   MONS_PREDICTOR_TYPE predictors;

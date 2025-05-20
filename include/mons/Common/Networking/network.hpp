@@ -24,7 +24,7 @@ public:
   // Set local machine ID; expected to match ID in network config file
   Network(id_t id);
   // Send some message to the specified machine.
-  void Send(std::shared_ptr<Message::NetworkMessage> data,
+  void Send(std::shared_ptr<Message::Base> data,
             id_t machine);
 
   // `RegisterEvent` Registers a callback to run when a message is recieved
@@ -34,7 +34,7 @@ public:
   #undef REGISTER
 private:
   // Blocking call to recieve a message.
-  std::shared_ptr<Message::NetworkMessage> Recieve();
+  std::shared_ptr<Message::Base> Recieve();
   // Log an asio error if it is set.
   void LogError(const asio::error_code& error);
   // Send some raw binary data to the specified machine.

@@ -7,30 +7,28 @@ namespace mons {
 namespace Client {
 
 DistFunctionClient
-::DistFunctionClient(mons::Network& network)
-: DistFunction(network)
+::DistFunctionClient(mons::RemoteClient& server)
 {
-  this->network = &network;
   // Register events to update predictors, responses, and weights
-  network.RegisterEvent([&](const Message::UpdatePredictors& message)
+  server.OnRecieve([&](const Message::UpdatePredictors& message)
   {
     message.GetTensor(predictors);
   });
-  network.RegisterEvent([&](const Message::UpdateResponses& message)
+  server.OnRecieve([&](const Message::UpdateResponses& message)
   {
     message.GetTensor(responses);
   });
-  network.RegisterEvent([&](const Message::UpdateWeights& message)
+  server.OnRecieve([&](const Message::UpdateWeights& message)
   {
     message.GetTensor(weights);
   });
 
   // Register functions that can be remotely called
-  network.RegisterEvent([&](const Message::Shuffle& message)
+  server.OnRecieve([&](const Message::Shuffle& message)
   {
     Shuffle();
   });
-  network.RegisterEvent([&](const Message::EvaluateWithGradient& message)
+  server.OnRecieve([&](const Message::EvaluateWithGradient& message)
   {
     // Evaluate with gradient
     MONS_MAT_TYPE parameters, gradient;
@@ -47,7 +45,7 @@ DistFunctionClient
     gradientMessage.SetTensor(gradient);
     gradientMessage.BaseData.responseTo = message.BaseData.id;
     
-    network.Send(gradientMessage, 0);
+    server.Send(gradientMessage);
   });
 }
 

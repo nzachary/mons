@@ -37,16 +37,16 @@ public:
     uint32_t apiVersion = MONS_VERSION_NUMBER;
 
     // Type ID of message being sent; Set in `vector<char> Base::Serialize`
-    uint32_t messageType = -1;
+    uint32_t messageType = 0;
 
     // Total number of bytes in message; Set in `vector<char> Base::Serialize`
     uint32_t messageNumBytes = 0;
   
     // Sending machine's ID
-    uint32_t sender = 0;
+    uint32_t sender = -1;
   
     // Recieving machine's ID
-    uint32_t reciever = 0;
+    uint32_t reciever = -1;
   
     // ID is equal to the number of messages the sender has sent out
     uint32_t id = 0;
@@ -57,65 +57,52 @@ public:
   } BaseData;
 
   // Write message as a byte buffer
-  std::vector<char> Serialize()
+  MessageBuffer Serialize()
   {
-    std::vector<char> buffer;
-    Serialize(buffer);
+    MessageBuffer buffer(0);
+    Serialize(buffer, true);
     // Overwrite `messageType` and `messageNumBytes`
-    mons::Serialize(buffer, MessageType(), offsetof(BaseDataStruct,
-        BaseDataStruct::messageType));
-    mons::Serialize(buffer, buffer.size(), offsetof(BaseDataStruct,
-        BaseDataStruct::messageNumBytes));
+    mons::Serialize(buffer, MessageType(), true,
+        offsetof(BaseDataStruct, BaseDataStruct::messageType));
+    mons::Serialize(buffer, (uint32_t)buffer.data.size(), true,
+        offsetof(BaseDataStruct, BaseDataStruct::messageNumBytes));
     return buffer;
   };
 
   // Deserialize from a buffer; returns number of bytes read
-  size_t Deserialize(std::vector<char>& buffer)
+  size_t Deserialize(MessageBuffer& buffer)
   {
-    size_t begin = 0;
-    Deserialize(buffer, begin);
-    return begin;
+    Serialize(buffer, false);
+    return buffer.deserializePtr;
   };
 
-  // Decode message metadata from a buffer
-  static BaseDataStruct
-  DecodeHeader(std::vector<char>& buffer)
+  // Serialize or deserialize message metadata
+  static void
+  SerializeHeader(BaseDataStruct& header, MessageBuffer& buffer, bool direction)
   {
-    assert(buffer.size() == sizeof(BaseDataStruct));
-    size_t begin = 0;
-    BaseDataStruct tempStruct;
+    mons::Serialize(buffer, header.apiVersion, direction);
+    // Overwritten in `Serialize` above
+    mons::Serialize(buffer, header.messageType, direction);
+    // Overwritten in `Serialize` above
+    mons::Serialize(buffer, header.messageNumBytes, direction);
+    mons::Serialize(buffer, header.sender, direction);
+    mons::Serialize(buffer, header.reciever, direction);
+    mons::Serialize(buffer, header.id, direction);
+    mons::Serialize(buffer, header.responseTo, direction);
 
-    mons::Deserialize(buffer, tempStruct.apiVersion, begin);
-    mons::Deserialize(buffer, tempStruct.messageType, begin);
-    mons::Deserialize(buffer, tempStruct.messageNumBytes, begin);
-    mons::Deserialize(buffer, tempStruct.sender, begin);
-    mons::Deserialize(buffer, tempStruct.reciever, begin);
-    mons::Deserialize(buffer, tempStruct.id, begin);
-    mons::Deserialize(buffer, tempStruct.responseTo, begin);
-    
-    assert(begin == sizeof(BaseDataStruct));
-
-    return tempStruct;
+    buffer.Expect(sizeof(BaseDataStruct), direction);
   }
 protected:
-  // Append data to a byte buffer
-  virtual void Serialize(std::vector<char>& buffer)
+  // Serialize or deserialize message from buffer
+  // If `serialize` is true, serialize, else deserialize
+  virtual void Serialize(MessageBuffer& buffer, bool serialize)
   {
-    mons::Serialize(buffer, BaseData.apiVersion);
-    // Dummy - see `Serialize` above
-    mons::Serialize(buffer, BaseData.messageType);
-    // Dummy - see `Serialize` above
-    mons::Serialize(buffer, BaseData.messageNumBytes);
-    mons::Serialize(buffer, BaseData.sender);
-    mons::Serialize(buffer, BaseData.reciever);
-    mons::Serialize(buffer, BaseData.id);
-    mons::Serialize(buffer, BaseData.responseTo);
+    // Deserialize is handled in `SerializeHeader` from `Network::Recieve`
+    if (serialize)
+    {
+      SerializeHeader(BaseData, buffer, serialize);
+    }
   };
-  // Parse serialized buffer
-  virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
-  {
-    // Handled in `DecodeHeader`
-  }
   // Get message type
   virtual uint32_t MessageType() const = 0;
 };

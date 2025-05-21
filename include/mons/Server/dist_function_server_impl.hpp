@@ -6,12 +6,6 @@
 namespace mons {
 namespace Server {
 
-DistFunctionServer
-::DistFunctionServer(mons::Network& network)
-: DistFunction(network)
-{
-}
-
 template<typename OptimizerType, typename... CallbackTypes>
 MONS_ELEM_TYPE
 DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,

@@ -32,21 +32,14 @@ public:
     ParentType::SetTensor<T>(tensor);
   };
 protected:
-  virtual void Serialize(std::vector<char>& buffer)
+  virtual void Serialize(MessageBuffer& buffer, bool serialize)
   {
-    ParentType::Serialize(buffer);
+    ParentType::Serialize(buffer, serialize);
 
-    mons::Serialize(buffer, EvaluateWithGradientData.begin);
-    mons::Serialize(buffer, EvaluateWithGradientData.batchSize);
-  }
+    mons::Serialize(buffer, EvaluateWithGradientData.begin, serialize);
+    mons::Serialize(buffer, EvaluateWithGradientData.batchSize, serialize);
 
-  virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
-  {
-    Base::Deserialize(buffer, begin);
-
-    mons::Deserialize(buffer, EvaluateWithGradientData.begin, begin);
-    mons::Deserialize(buffer, EvaluateWithGradientData.batchSize,
-        begin);
+    buffer.Expect(sizeof(EvaluateWithGradientDataStruct), serialize);
   }
 
   virtual uint32_t MessageType() const

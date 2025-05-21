@@ -18,18 +18,13 @@ public:
     uint32_t beatCount = 0;
   } HeartbeatData;
 protected:
-  virtual void Serialize(std::vector<char>& buffer)
+  virtual void Serialize(MessageBuffer& buffer, bool serialize)
   {
-    Base::Serialize(buffer);
+    Base::Serialize(buffer, serialize);
 
-    mons::Serialize(buffer, HeartbeatData.beatCount);
-  };
+    mons::Serialize(buffer, HeartbeatData.beatCount, serialize);
 
-  virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
-  {
-    Base::Deserialize(buffer, begin);
-
-    mons::Deserialize(buffer, HeartbeatData.beatCount, begin);
+    buffer.Expect(sizeof(HeartbeatDataStruct), serialize);
   };
 
   virtual uint32_t MessageType() const

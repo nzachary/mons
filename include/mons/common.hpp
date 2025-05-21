@@ -6,5 +6,6 @@
 #include "Common/dist_function.hpp"
 #include "Common/network.hpp"
 #include "Common/Message/message_types.hpp"
+#include "Common/remote_client.hpp"
 
 #endif

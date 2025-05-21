@@ -12,7 +12,6 @@ namespace Server {
 class DistFunctionServer : public mons::DistFunction
 {
 public:
-  DistFunctionServer(mons::Network& network);
   // Training without an optimizer
   template<typename OptimizerType, typename... CallbackTypes>
   MONS_ELEM_TYPE Train(MONS_PREDICTOR_TYPE predictors,

@@ -14,7 +14,8 @@ namespace Client {
 class DistFunctionClient : public mons::DistFunction
 {
 public:
-  DistFunctionClient(mons::Network& network);
+  // Accepts a client that is used to communicate with the main server
+  DistFunctionClient(mons::RemoteClient& serverRemote);
 private:
   // Remotely callable functions
   MONS_ELEM_TYPE

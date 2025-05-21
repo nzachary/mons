@@ -139,40 +139,46 @@ public:
         tensor.n_elem * sizeof(eT));
   }
 protected:
-  virtual void Serialize(std::vector<char>& buffer)
+  virtual void Serialize(MessageBuffer& buffer, bool serialize)
   {
-    Base::Serialize(buffer);
+    Base::Serialize(buffer, serialize);
 
-    // Verify data is correctly formatted
-    if (TensorData.numDimensions != TensorData.dimensions.size())
+    if (serialize)
     {
-      Log::FatalError("Incorrect number of dimensions in tensor");
+      // Verify data is correctly formatted
+      if (TensorData.numDimensions != TensorData.dimensions.size())
+      {
+        Log::FatalError("Incorrect number of dimensions in tensor");
+      }
+      size_t numElem = 1;
+      for (const uint64_t& len : TensorData.dimensions)
+        numElem *= len;
+      if (numElem != TensorData.data.size())
+      {
+        Log::FatalError("Incorrect number of elements in tensor");
+      }
     }
-    size_t numElem = 1;
-    for (const uint64_t& len : TensorData.dimensions)
-      numElem *= len;
-    if (numElem != TensorData.data.size())
+    else
     {
-      Log::FatalError("Incorrect number of elements in tensor");
+      // Resize dimensions
+      TensorData.dimensions.resize(TensorData.numDimensions);
     }
 
-    mons::Serialize(buffer, TensorData.numDimensions);
-    mons::Serialize(buffer, TensorData.dimensions);
-    mons::Serialize(buffer, TensorData.data);
-  };
-
-  virtual void Deserialize(std::vector<char>& buffer, size_t& begin)
-  {
-    Base::Deserialize(buffer, begin);
-
-    mons::Deserialize(buffer, TensorData.numDimensions, begin);
-    TensorData.dimensions.resize(TensorData.numDimensions);
-    mons::Deserialize(buffer, TensorData.dimensions, begin);
+    mons::Serialize(buffer, TensorData.numDimensions, serialize);
+    mons::Serialize(buffer, TensorData.dimensions, serialize);
+    // Resize raw data buffer if deserializing
     size_t numElem = 1;
-    for (const uint64_t& len : TensorData.dimensions)
-      numElem *= len;
-    TensorData.data.resize(numElem);
-    mons::Deserialize(buffer, TensorData.data, begin);
+    if (!serialize)
+    {
+      for (const uint64_t& len : TensorData.dimensions)
+        numElem *= len;
+      TensorData.data.resize(numElem);
+    }
+    mons::Serialize(buffer, TensorData.data, serialize);
+
+    buffer.Expect(sizeof(TensorData.numDimensions) +
+        TensorData.numDimensions * sizeof(uint64_t) +
+        numElem * sizeof(eT), serialize);
   };
 };
 

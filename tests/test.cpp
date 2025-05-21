@@ -14,9 +14,11 @@ void InfiniteWait()
 
 void StartServer()
 {
-  mons::Network serverNetwork(0);
+  mons::Network& network = mons::Network::Get(0);
+  // Create a client on server network and connect to machine 1 (worker)
+  mons::RemoteClient& workerClient = mons::RemoteClient::Get(network, 1);
 
-  serverNetwork.RegisterEvent([](const mons::Message::Heartbeat& message)
+  workerClient.OnRecieve([](const mons::Message::Heartbeat& message)
   {
     std::cout << "Recieved: " << message.HeartbeatData.beatCount << std::endl;
   });
@@ -26,9 +28,11 @@ void StartServer()
 
 void StartClient()
 {
-  mons::Network clientNetwork(1);
+  mons::Network& network = mons::Network::Get(1);
+  // Create a client on client network and connect to machine 0 (server)
+  mons::RemoteClient& serverClient = mons::RemoteClient::Get(network, 0);
 
-  mons::Client::DistFunctionClient worker(clientNetwork);
+  mons::Client::DistFunctionClient worker(serverClient);
   
   InfiniteWait();
 }

@@ -10,6 +10,29 @@
 // Unsafe, make sure that the buffer contains data that is of type T.
 
 namespace mons {
+
+// Struct to hold a serialized message
+struct MessageBuffer {
+  // Raw character buffer
+  std::vector<char> data;
+  // Current head of deserializing
+  size_t deserializePtr = 0;
+  // Number of bytes read or written since last call to `Expect`
+  size_t processed = 0;
+
+  MessageBuffer(size_t size) : data(size) {}
+  // Expect a number of bytes written or read and optionally throw
+  void Expect(size_t n, bool thr) {
+    if (n != processed)
+    {
+      Log::Error("Unexpected number of bytes read or written");
+      if (thr)
+        throw std::runtime_error("Unexpected number of bytes");
+    }
+    processed = 0;
+  }
+};
+
 namespace Private {
 
 enum DeserializeError {
@@ -18,12 +41,6 @@ enum DeserializeError {
 
 // This is set if there is an error while deserializing
 size_t deserializeError = 0;
-
-template <typename T>
-struct SerializeLength
-{
-  static constexpr size_t value = sizeof(T);
-};
 
 // Reverses `arr` if the system does not use big endian.
 void _ToBigEndian(char* arr, size_t n)
@@ -44,47 +61,52 @@ void _BigToNativeEndian(char* arr, size_t n)
 // Implementation
 // Convert T to bytes, automatically resizing buffer if necessary.
 template <typename T>
-void _SerializePrivate(std::vector<char>& buffer,
+void _SerializePrivate(MessageBuffer& buffer,
                        const T& val,
                        size_t start = -1)
 {
   // Calculate start
   if (start == (size_t)-1)
-    start = buffer.size();
+    start = buffer.data.size();
   
   // Resize if necessary
-  size_t newLen = start + Private::SerializeLength<T>::value;
-  if (newLen > buffer.size())
+  size_t newLen = start + sizeof(T);
+  if (newLen > buffer.data.size())
   {
-    buffer.resize(newLen);
+    buffer.data.resize(newLen);
   }
 
   // Write data
-  char* bufferPtr = buffer.data() + start;
-  memcpy(bufferPtr, &val, SerializeLength<T>::value);
-  Private::_ToBigEndian(bufferPtr, Private::SerializeLength<T>::value);
+  char* bufferPtr = buffer.data.data() + start;
+  memcpy(bufferPtr, &val, sizeof(T));
+  Private::_ToBigEndian(bufferPtr, sizeof(T));
+  buffer.processed += sizeof(T);
 }
 
 // Convert bytes to T
 template <typename T>
-void _DeserializePrivate(const std::vector<char>& buffer,
+void _DeserializePrivate(MessageBuffer& buffer,
                          T& val,
-                         size_t& begin)
+                         size_t start = -1)
 {
+  // Calculate start
+  if (start == (size_t)-1)
+    start = buffer.deserializePtr;
+  
   // Size check
-  if (buffer.size() < begin + Private::SerializeLength<T>::value)
+  size_t end = buffer.deserializePtr + sizeof(T);
+  if (buffer.data.size() < end)
   {
-    Log::Error("Trying to deserialize (" + std::to_string(begin) +
-        " + " + std::to_string(Private::SerializeLength<T>::value) +
-        ") but buffer is only (" + std::to_string(buffer.size()) +
-        ") bytes long.");
     deserializeError = DeserializeError::ERROR_BUFFER_OVERRUN;
     return;
   }
   // Write data
-  memcpy(&val, buffer.data() + begin, SerializeLength<T>::value);
-  _BigToNativeEndian((char*)&val, SerializeLength<T>::value);
-  begin += Private::SerializeLength<T>::value;
+  char* bufferPtr = buffer.data.data() + start;
+  void* ptr = (void*)const_cast<T*>(&val);
+  memcpy(ptr, bufferPtr, sizeof(T));
+  _BigToNativeEndian((char*)ptr, sizeof(T));
+  buffer.deserializePtr += sizeof(T);
+  buffer.processed += sizeof(T);
 }
 
 // SFINAE structs
@@ -122,34 +144,33 @@ bool CheckDeserializeError()
   return CheckDeserializeError(t);
 }
 
-// Serialize T to an existing buffer, automatically resizing buffer if necessary.
+// Serialize or deserialize T from a buffer
+// If serializing, the buffer will be automatically extended
+// Direction is true if serializing and false if deserializing
 template <typename T>
-void Serialize(std::vector<char>& buffer,
+void Serialize(MessageBuffer& buffer,
                const T& val,
+               bool direction,
                size_t start = -1,
                const typename std::enable_if_t<
                    !Private::HasSerialSpecialization<T>::value
                >* = 0)
 {
-  Private::_SerializePrivate(buffer, val, start);
-}
-
-// Deserialize T from a buffer.
-template <typename T>
-void Deserialize(const std::vector<char>& buffer,
-                 T& val,
-                 size_t& begin,
-                 const typename std::enable_if_t<
-                   !Private::HasSerialSpecialization<T>::value
-                 >* = 0)
-{
-  Private::_DeserializePrivate(buffer, val, begin);
+  if (direction)
+  {
+    Private::_SerializePrivate(buffer, val, start);
+  }
+  else
+  {
+    Private::_DeserializePrivate(buffer, val, start);
+  }
 }
 
 // Serialize vector specialization
 template <typename T>
-void Serialize(std::vector<char>& buffer,
+void Serialize(MessageBuffer& buffer,
                const T& val,
+               bool direction,
                size_t start = -1,
                const typename std::enable_if_t<
                  Private::IsVector<T>::value
@@ -157,29 +178,12 @@ void Serialize(std::vector<char>& buffer,
 {
   // Calculate offset here instead of depending on `_SerializePrivate` to calculate it
   if (start == (size_t)-1)
-    start = buffer.size();
+    start = buffer.data.size();
   
   for (size_t i = 0; i < val.size(); i++)
   {
-    Serialize(buffer, val[i], start);
+    Serialize(buffer, val[i], direction, start);
     start += sizeof(typename T::value_type);
-  }
-}
-
-// Deserialize vector specialization
-// Assumes `val` is already set to the correct size
-template <typename T>
-void Deserialize(const std::vector<char>& buffer,
-                 T& val,
-                 size_t& begin,
-                 const typename std::enable_if_t<
-                   Private::IsVector<T>::value
-                 >* = 0)
-{
-  for (size_t i = 0; i < val.size(); i++)
-  {
-    // begin is increased in the below call
-    Deserialize(buffer, val[i], begin);
   }
 }
 

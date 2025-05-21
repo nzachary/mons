@@ -16,14 +16,11 @@ namespace mons {
 class DistFunction
 {
 public:
-  DistFunction(Network& network) : network(&network) {};
   // Get the underlying function
   MONS_FUNCTION_TYPE& GetFunction() { return function; };
 protected:
   // Function this is wrapped around
   MONS_FUNCTION_TYPE function;
-  // Pointer to network to communicate on
-  Network* network;
 };
 
 } // namespace mons

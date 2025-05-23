@@ -48,7 +48,8 @@ public:
     // Recieving machine's ID
     uint32_t reciever = -1;
   
-    // ID is equal to the number of messages the sender has sent out
+    // The identifier of the message
+    // Usually only set > 0 if it is expecting a response
     uint32_t id = 0;
 
     // Mark the message as a response to another message
@@ -73,7 +74,9 @@ public:
   size_t Deserialize(MessageBuffer& buffer)
   {
     Serialize(buffer, false);
-    return buffer.deserializePtr;
+    size_t read = buffer.deserializePtr;
+    buffer.deserializePtr = 0;
+    return read;
   };
 
   // Serialize or deserialize message metadata
@@ -102,7 +105,7 @@ protected:
     {
       SerializeHeader(BaseData, buffer, serialize);
     }
-  };
+  }
   // Get message type
   virtual uint32_t MessageType() const = 0;
 };

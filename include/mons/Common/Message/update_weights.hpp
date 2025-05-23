@@ -9,23 +9,9 @@
 namespace mons {
 namespace Message {
 
-class UpdateWeights : public TensorType
-<typename MONS_WEIGHT_TYPE::elem_type>
+class UpdateWeights : public Tensor
 {
 public:
-  using ParentType = TensorType<typename MONS_WEIGHT_TYPE::elem_type>;
-  // Wrappers to allow templated functions
-  template <typename T>
-  void GetTensor(T& tensor) const
-  {
-    ParentType::GetTensor<T>(tensor);
-  };
-  
-  template <typename T>
-  void SetTensor(T& tensor)
-  {
-    ParentType::SetTensor<T>(tensor);
-  };
 protected:
   virtual uint32_t MessageType() const
   {

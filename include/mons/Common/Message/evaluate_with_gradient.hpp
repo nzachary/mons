@@ -9,32 +9,18 @@
 namespace mons {
 namespace Message {
 
-class EvaluateWithGradient : public TensorType
-<typename MONS_MAT_TYPE::elem_type>
+class EvaluateWithGradient : public Tensor
 {
 public:
-  using ParentType = TensorType<typename MONS_MAT_TYPE::elem_type>;
   struct EvaluateWithGradientDataStruct
   {
     uint64_t begin;
     uint64_t batchSize;
   } EvaluateWithGradientData;
-  // Wrappers to allow templated functions
-  template <typename T>
-  void GetTensor(T& tensor) const
-  {
-    ParentType::GetTensor<T>(tensor);
-  };
-  
-  template <typename T>
-  void SetTensor(T& tensor)
-  {
-    ParentType::SetTensor<T>(tensor);
-  };
 protected:
   virtual void Serialize(MessageBuffer& buffer, bool serialize)
   {
-    ParentType::Serialize(buffer, serialize);
+    Tensor::Serialize(buffer, serialize);
 
     mons::Serialize(buffer, EvaluateWithGradientData.begin, serialize);
     mons::Serialize(buffer, EvaluateWithGradientData.batchSize, serialize);

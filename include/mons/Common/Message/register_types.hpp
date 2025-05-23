@@ -13,6 +13,8 @@
   REGISTER(UpdateWeights) \
   REGISTER(Shuffle) \
   REGISTER(EvaluateWithGradient) \
-  REGISTER(Gradient)
+  REGISTER(Gradient) \
+  REGISTER(OperationStatus) \
+  REGISTER(UpdateFunction)
 
 #endif

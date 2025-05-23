@@ -29,6 +29,8 @@ RemoteClient::RemoteClient(Network& network, id_t id) : id(id), net(&network)
   OnRecieve([&](const Message::Heartbeat& message)
   {
     lastBeat = std::chrono::system_clock::now();
+    
+    return false;
   });
 
   // Create a thread to send out heartbeats but don't hold it
@@ -62,11 +64,37 @@ void RemoteClient::Send(MessageType& message)
 template <typename MessageType, typename ResponseType>
 std::future<ResponseType> RemoteClient::SendAwaitable(MessageType& message)
 {
-  return net->SendAwaitable(message, id);
+  return net->SendAwaitable<MessageType, ResponseType>(message, id);
+}
+
+template <typename MessageType>
+int RemoteClient::SendOpWait(MessageType& data, double timeout, int error)
+{
+  std::future<Message::OperationStatus> status =
+      SendAwaitable<MessageType, Message::OperationStatus>(data);
+  if (timeout > 0)
+  {
+    // Timeout logic
+    if (status.wait_for(std::chrono::milliseconds((int)(timeout * 1000))) ==
+        std::future_status::ready)
+    {
+      return status.get().OperationStatusData.status;
+    }
+    else
+    {
+      // Not ready (timed out)
+      return error;
+    }
+  }
+  else
+  {
+    // Wait infinitely
+    return status.get().OperationStatusData.status;
+  }
 }
 
 #define REGISTER(Val) \
-void RemoteClient::OnRecieve(std::function<void(const Message::Val&)> callback) \
+void RemoteClient::OnRecieve(std::function<bool(const Message::Val&)> callback) \
 { \
   net->RegisterEvent(id, std::move(callback)); \
 }

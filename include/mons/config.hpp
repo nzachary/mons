@@ -1,5 +1,5 @@
 /*
- * To set your own config, define the types
+ * To set your own config, define all of the types and 
  * before including this file.
  */
 #ifndef MONS_CONFIG_HPP
@@ -7,28 +7,23 @@
 
 #include <mlpack/core/util/arma_traits.hpp>
 
-#ifndef MONS_MAT_TYPE
-  #define MONS_MAT_TYPE arma::mat
-#endif
+#ifndef MONS_CUSTOM_CONFIG
+
+#define MONS_MAT_TYPE arma::mat
 
 // See Common/dist_function.hpp
-#ifndef MONS_FUNCTION_TYPE
-  #define MONS_FUNCTION_TYPE mlpack::FFN<>
-#endif
+#define MONS_FUNCTION_TYPE mlpack::FFN<mlpack::MeanSquaredError>
 
 // Type of data used for predictors
-#ifndef MONS_PREDICTOR_TYPE
-  #define MONS_PREDICTOR_TYPE MONS_MAT_TYPE
-#endif
+#define MONS_PREDICTOR_TYPE MONS_MAT_TYPE
+#define MONS_RESPONSE_TYPE MONS_MAT_TYPE
+#define MONS_WEIGHT_TYPE MONS_SEQUENCE_LENGTH_TYPE
 
-// Type of data used for responses
-#ifndef MONS_RESPONSE_TYPE
-  #define MONS_RESPONSE_TYPE MONS_MAT_TYPE
-#endif
+// Names of member variables
+#define MONS_PREDICTOR_NAME predictors
+#define MONS_RESPONSE_NAME responses
+//#define MONS_WEIGHT_NAME
 
-// Type of data used for weights
-#ifndef MONS_WEIGHT_TYPE
-  #define MONS_WEIGHT_TYPE MONS_SEQUENCE_LENGTH_TYPE
 #endif
 
 // No touchy beyond this point

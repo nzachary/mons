@@ -177,8 +177,8 @@ void Serialize(MessageBuffer& buffer,
                >* = 0)
 {
   // Calculate offset here instead of depending on `_SerializePrivate` to calculate it
-  if (start == (size_t)-1)
-    start = buffer.data.size();
+    if (start == (size_t)-1)
+      start = (direction) ? buffer.data.size() : buffer.deserializePtr;
   
   for (size_t i = 0; i < val.size(); i++)
   {

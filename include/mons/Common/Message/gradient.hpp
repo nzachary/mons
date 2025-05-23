@@ -9,28 +9,27 @@
 namespace mons {
 namespace Message {
 
-class Gradient : public TensorType
-<typename MONS_MAT_TYPE::elem_type>
+class Gradient : public Tensor
 {
 public:
-  using ParentType = TensorType<typename MONS_MAT_TYPE::elem_type>;
-  // Wrappers to allow templated functions
-  template <typename T>
-  void GetTensor(T& tensor) const
+struct GradientDataStruct
   {
-    ParentType::GetTensor<T>(tensor);
-  };
-  
-  template <typename T>
-  void SetTensor(T& tensor)
-  {
-    ParentType::SetTensor<T>(tensor);
-  };
+    MONS_ELEM_TYPE objective;
+  } GradientData;
 protected:
   virtual uint32_t MessageType() const
   {
     return Message::MessageTypes::Gradient;
-  };
+  }
+
+  virtual void Serialize(MessageBuffer& buffer, bool serialize)
+  {
+    Tensor::Serialize(buffer, serialize);
+
+    mons::Serialize(buffer, GradientData.objective, serialize);
+
+    buffer.Expect(sizeof(GradientDataStruct), serialize);
+  }
 };
 
 } // namespace Message

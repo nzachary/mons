@@ -2,6 +2,7 @@
 #include <fstream>
 #include <filesystem>
 
+#define MLPACK_ENABLE_ANN_SERIALIZATION
 #include "../include/mons.hpp"
 
 void InfiniteWait()
@@ -18,10 +19,33 @@ void StartServer()
   // Create a client on server network and connect to machine 1 (worker)
   mons::RemoteClient& workerClient = mons::RemoteClient::Get(network, 1);
 
-  workerClient.OnRecieve([](const mons::Message::Heartbeat& message)
+  // Set up server
+  mons::Server::DistFunctionServer workServer;
+
+  // Set up network
+  auto& ffn = workServer.GetFunction();
+  ffn.Add<mlpack::Linear>(10);
+  ffn.Add<mlpack::Linear>(1);
+  ffn.InputDimensions() = {2};
+
+  // Add client
+  workServer.AddClient(workerClient);
+
+  // Start training
+  MONS_PREDICTOR_TYPE pred(2, 500);
+  MONS_RESPONSE_TYPE resp(1, 500);
+  for (size_t i = 0; i < 500; i++)
   {
-    std::cout << "Recieved: " << message.HeartbeatData.beatCount << std::endl;
-  });
+    double theta = 0.01 * i;
+    pred(0, i) = std::sin(theta);
+    pred(1, i) = std::cos(theta);
+    resp(0, i) = theta;
+  }
+  ens::Adam adam;
+  adam.MaxIterations() = 500 * 5;
+  workServer.Train(pred, resp, adam, ens::ProgressBar());
+
+  mons::Log::Status("Done!");
   
   InfiniteWait();
 }
@@ -49,9 +73,14 @@ int main()
     }
     newConfig << "0;127.0.0.1;1337\n1;127.0.0.1;1338";
   }
-  
-  std::thread server = std::thread(StartServer);
+  // Create networks so they can start listening
+  mons::Network::Get(0);
+  mons::Network::Get(1);
+
+  // Start server and client
+  sleep(1);
   std::thread client = std::thread(StartClient);
+  std::thread server = std::thread(StartServer);
   
   InfiniteWait();
 }

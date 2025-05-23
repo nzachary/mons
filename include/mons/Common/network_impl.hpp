@@ -41,8 +41,6 @@ void Network::Send(MessageType& message,
   // Set message sender/reciever
   message.BaseData.sender = id;
   message.BaseData.reciever = machine;
-  // Set message ID
-  message.BaseData.id = idCounter++;
   MessageBuffer buffer = message.Message::Base::Serialize();
   // Send message
   SendDataRaw(buffer, machine);
@@ -53,25 +51,49 @@ std::future<ResponseType> Network
 ::SendAwaitable(MessageType& message,
                 id_t machine)
 {
-  Send(message, machine);
-  // ID is set by Send()
-  uint64_t messageId = message->BaseData.id;
-  auto waitable = std::async(std::launch::async, [&]()
+  // Set message ID
+  message.BaseData.id = idCounter++;
+
+  // Launch waiter
+  uint64_t messageId = message.BaseData.id;
+  std::future<ResponseType> waitable = std::async(std::launch::async,
+      [this, messageId, machine]()
   {
     ResponseType response;
+    std::condition_variable cv;
+    std::mutex m;
+    bool cvPayload = false;
+    // Register an event to wait for a response
     RegisterEvent(machine, [&](const ResponseType& recieved)
     {
       if (recieved.BaseData.responseTo == messageId)
-        response = std::move(recieved);
+      {
+        response = recieved;
+        // Notify done
+        std::unique_lock l(m);
+        cvPayload = true;
+        cv.notify_all();
+    
+        return true;
+      }
+    
+      return false;
     });
+    // Wait for event to trigger
+    std::unique_lock lock(m);
+    cv.wait(lock, [&]{ return cvPayload; });
     return response;
   });
-  return waitable.future();
+
+  // Send message
+  Send(message, machine);
+
+  return waitable;
 }
 
 #define REGISTER(Val) \
 void Network \
-::RegisterEvent(id_t from, std::function<void(const Message::Val&)> callback) \
+::RegisterEvent(id_t from, std::function<bool(const Message::Val&)> callback) \
 { \
   allCallbacks##Val[from].push_back(std::move(callback)); \
 }
@@ -88,19 +110,36 @@ void Network::StartReciever()
     {
       // Accept incoming connection
       asio::io_context context;
-      asio::ip::tcp::acceptor acceptor(context, endpoints[id]);
       asio::ip::tcp::socket socket(context);
+      asio::ip::tcp::acceptor acceptor(context, endpoints[id]);
       asio::error_code ec;
       acceptor.accept(socket, ec);
       LogError(ec);
 
-      // Recieve header
-      Message::Base::BaseDataStruct header;
-      MessageBuffer buffer(sizeof(header));
-      socket.read_some(asio::buffer(buffer.data), ec);
-      LogError(ec);
+      // Recieve message
+      size_t totalRead = 0;
+      MessageBuffer buffer(0);
+      while (true)
+      {
+        const size_t BUFFER_INCREMENT = 128;
+        buffer.data.resize(buffer.data.size() + BUFFER_INCREMENT);
+        auto asioBuffer = asio::buffer(buffer.data.data() + totalRead,
+            BUFFER_INCREMENT);
+        totalRead += socket.read_some(asioBuffer, ec);
+        if (ec == asio::error::eof)
+          // Done recieving
+          break;
+        else
+          LogError(ec);
+      }
+      socket.close();
+
+      // Resize buffer down to remove trailing empty data
+      buffer.data.resize(totalRead);
+      buffer.deserializePtr = 0;
 
       // Try to decode the header
+      Message::Base::BaseDataStruct header;
       Message::Base::SerializeHeader(header, buffer, false);
 
       // Check message API version
@@ -121,28 +160,16 @@ void Network::StartReciever()
       }
       #undef REGISTER
 
-      // Resize buffer to accept rest of message
-      buffer.data.resize(header.messageNumBytes - sizeof(header));
-      buffer.deserializePtr = 0;
-      // Read the rest of the message
-      size_t totalRead = 0;
-      while (totalRead < buffer.data.size())
-      {
-        auto asioBuffer = asio::buffer(buffer.data.data() + totalRead,
-            buffer.data.size() - totalRead);
-        totalRead += socket.read_some(asioBuffer, ec);
-        LogError(ec);
-      }
+      // Write the header that was decoded earlier into message
+      message->BaseData = header;
 
-      // Call type's `Deserialize`
+      // Call type's `Deserialize` and read the rest
       size_t bytes = message->Deserialize(buffer);
-      if (bytes != header.messageNumBytes - sizeof(header))
+      if (bytes != header.messageNumBytes)
       {
         Log::Error("Error while deserializing message");
         return;
       }
-      // Write the header that was decoded here into message
-      message->BaseData = header;
 
       // Call `PropagateMessage`
       #define REGISTER(Val) case Message::MessageTypes::Val: \
@@ -167,6 +194,7 @@ void Network::LogError(const asio::error_code& error)
 void Network::SendDataRaw(const MessageBuffer& data,
                           id_t machine)
 { 
+  auto lock = std::unique_lock(networkMutex);
   // Connect to machine
   asio::io_context context;
   asio::ip::tcp::socket socket(context);
@@ -175,9 +203,14 @@ void Network::SendDataRaw(const MessageBuffer& data,
   LogError(ec);
   
   // Send data
-  socket.send(asio::buffer(data.data), 0, ec);
-  LogError(ec);
-  socket.close();
+  size_t totalSent = 0;
+  while (totalSent < data.data.size())
+  {
+    auto asioBuffer = asio::buffer(data.data.data() + totalSent,
+        data.data.size() - totalSent);
+    totalSent += socket.write_some(asioBuffer, ec);
+    LogError(ec);
+  }
 }
 
 // Parse network config
@@ -263,9 +296,10 @@ void Network::AddMachine(const asio::ip::tcp::endpoint& endpoint, id_t machine)
 
 #define REGISTER(Val) void Network::PropagateMessage(const Message::Val& message) \
 { \
-  auto& callbackList = allCallbacks##Val[message.BaseData.sender]; \
-  for (size_t i = 0; i < callbackList.size(); i++) \
-    callbackList[i](message); \
+  auto& cb = allCallbacks##Val[message.BaseData.sender]; \
+  cb.erase(std::remove_if(cb.begin(), cb.end(), \
+      [&](std::function<bool(const Message::Val&)>& callback) \
+      { return callback(message); }), cb.end()); \
 }
 MONS_REGISTER_MESSAGE_TYPES
 #undef REGISTER

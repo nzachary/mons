@@ -13,5 +13,8 @@
 #include "shuffle.hpp"
 #include "evaluate_with_gradient.hpp"
 #include "gradient.hpp"
+#include "cereal.hpp"
+#include "operation_status.hpp"
+#include "update_function.hpp"
 
 #endif

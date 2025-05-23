@@ -11,11 +11,11 @@
 namespace mons {
 namespace Client {
 
-class DistFunctionClient : public mons::DistFunction
+class DistFunctionClient : public DistFunction
 {
 public:
   // Accepts a client that is used to communicate with the main server
-  DistFunctionClient(mons::RemoteClient& serverRemote);
+  DistFunctionClient(RemoteClient& serverRemote);
 private:
   // Remotely callable functions
   MONS_ELEM_TYPE
@@ -25,17 +25,6 @@ private:
                        const size_t batchSize);
 
   void Shuffle();
-
-  // Local copies of data subsets
-
-  // Set of input data points.
-  MONS_PREDICTOR_TYPE predictors;
-
-  // Set of responses to the input data points.
-  MONS_RESPONSE_TYPE responses;
-
-  // Set of weights to the input data points.
-  MONS_WEIGHT_TYPE weights;
 };
 
 } // namespace Server

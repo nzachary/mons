@@ -6,9 +6,7 @@
 #ifndef MONS_COMMON_DIST_FUNCTION_HPP
 #define MONS_COMMON_DIST_FUNCTION_HPP
 
-#include <mlpack.hpp>
-
-#include "../config.hpp"
+#include "function_accessor.hpp"
 #include "network.hpp"
 
 namespace mons {
@@ -17,10 +15,10 @@ class DistFunction
 {
 public:
   // Get the underlying function
-  MONS_FUNCTION_TYPE& GetFunction() { return function; };
+  MONS_FUNCTION_TYPE& GetFunction() { return function.Get(); };
 protected:
   // Function this is wrapped around
-  MONS_FUNCTION_TYPE function;
+  FunctionAccessor function;
 };
 
 } // namespace mons

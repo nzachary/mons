@@ -39,8 +39,9 @@ private:
 
   // `RegisterEvent` Registers a callback to run when a message is recieved
   // Register events this way instead of templates to allow passing lambda
+  // Return true from the callback if it should be deleted
   #define REGISTER(Val) \
-  void RegisterEvent(id_t from, std::function<void(const Message::Val&)> callback);
+  void RegisterEvent(id_t from, std::function<bool(const Message::Val&)> callback);
   MONS_REGISTER_MESSAGE_TYPES
   #undef REGISTER
 
@@ -62,7 +63,7 @@ private:
   // `allCallbacks[MessageType]` constains a list of all callbacks for MessageType
   // `PropagateMessage` will call all of the enabled callbacks for the message type
   #define REGISTER(Val) \
-  std::map<id_t, std::vector<std::function<void(const Message::Val&)>>> \
+  std::map<id_t, std::vector<std::function<bool(const Message::Val&)>>> \
       allCallbacks##Val; \
   void PropagateMessage(const Message::Val& message);
   MONS_REGISTER_MESSAGE_TYPES
@@ -70,6 +71,9 @@ private:
 
   // Single `Network` instance per ID
   inline static std::map<id_t, Network> instances;
+
+  // Mutex for lock on sending data
+  inline static std::mutex networkMutex;
 
   // The machine's network ID.
   // The server's ID is 0 and the clients have an ID

@@ -6,6 +6,13 @@
 namespace mons {
 namespace Server {
 
+// Add a worker client
+void DistFunctionServer::AddClient(RemoteClient& client)
+{
+  clients.push_back(client);
+}
+
+// Secondary overload, look further down for main overload
 template<typename OptimizerType, typename... CallbackTypes>
 MONS_ELEM_TYPE
 DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
@@ -14,9 +21,10 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
 {
   OptimizerType optimizer;
   return Train(std::move(predictors), std::move(responses),
-      MONS_WEIGHT_TYPE(), optimizer, callbacks);
+      MONS_WEIGHT_TYPE(), optimizer, callbacks...);
 }
 
+// Secondary overload, look further down for main overload
 template<typename OptimizerType, typename... CallbackTypes>
 MONS_ELEM_TYPE
 DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
@@ -25,9 +33,10 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
                           CallbackTypes&&... callbacks)
 {
   return Train(std::move(predictors), std::move(responses),
-      MONS_WEIGHT_TYPE(), optimizer, callbacks);
+      MONS_WEIGHT_TYPE(), optimizer, callbacks...);
 }
 
+// Secondary overload, look further down for main overload
 template<typename OptimizerType, typename... CallbackTypes>
 MONS_ELEM_TYPE
 DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
@@ -37,7 +46,7 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
 {
   OptimizerType optimizer;
   return Train(std::move(predictors), std::move(responses),
-      MONS_WEIGHT_TYPE(), optimizer, callbacks);
+      MONS_WEIGHT_TYPE(), optimizer, callbacks...);
 }
 
 // This is the main implementation
@@ -49,16 +58,28 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
                           OptimizerType& optimizer,
                           CallbackTypes&&... callbacks)
 {
+  // Prepare function
+  function._SetInputDims(function.Get().InputDimensions());
+  function.Initalize(function.Get());
+  // Send function
+  Message::UpdateFunction message;
+  Message::Cereal::Cerealize(function.Get(), message.CerealData);
+  message.SetInputDimension(function.Get().InputDimensions());
+  for (RemoteClient& client : clients)
+    client.SendOpWait(message);
+  // Send data
+  // Sending after function so that they aren't reset
   ResetData(predictors, responses, weights);
-  const typename MatType::elem_type out =
-      optimizer.Optimize(*this, function.parameters(), callbacks...);
+  // Optimize
+  const typename MONS_ELEM_TYPE out =
+      optimizer.Optimize(*this, function.Get().Parameters(), callbacks...);
   return out;
 }
 
 void DistFunctionServer
 ::ResetData(MONS_PREDICTOR_TYPE predictors,
-             MONS_RESPONSE_TYPE responses,
-             MONS_WEIGHT_TYPE weights = MONS_WEIGHT_TYPE())
+            MONS_RESPONSE_TYPE responses,
+            MONS_WEIGHT_TYPE weights)
 {
   numFunctions = responses.n_cols;
 
@@ -77,25 +98,31 @@ void DistFunctionServer
     Message::UpdateWeights weightsMessage;
 
     // Write data
-    id_t client = clients[i];
-    predictorsMessage.SetTensor(predictorAliases[i]);
-    responsesMessage.SetTensor(responseAliases[i]);
-    weightsMessage.SetTensor(weightAliases[i]);
+    RemoteClient& client = clients[i];
+    Message::Tensor::SetTensor(predictorAliases[i],
+        predictorsMessage.TensorData);
+    Message::Tensor::SetTensor(responseAliases[i],
+        responsesMessage.TensorData);
+    Message::Tensor::SetTensor(weightAliases[i],
+        weightsMessage.TensorData);
 
     // Send to client
-    network->Send(std::make_shared<Message::UpdatePredictors>
-        (predictorsMessage), client);
-    network->Send(std::make_shared<Message::UpdatePredictors>
-        (responsesMessage), client);
-    network->Send(std::make_shared<Message::UpdatePredictors>
-        (weightsMessage), client);
+    #ifdef MONS_PREDICTOR_NAME
+    client.SendOpWait(predictorsMessage);
+    #endif
+    #ifdef MONS_RESPONSE_NAME
+    client.SendOpWait(responsesMessage);
+    #endif
+    #ifdef MONS_WEIGHT_NAME
+    client.SendOpWait(weightsMessage);
+    #endif
   }
 }
 
 template <typename T>
 void DistFunctionServer
 ::MakeAliasCols(T& out, T& in, size_t startCol, size_t endCol,
-                const typename std::enable_if_t<IsVector<T>::value>* = 0)
+                const typename std::enable_if_t<IsVector<T>::value>*)
 {
   mlpack::MakeAlias(out, in, endCol - startCol, startCol);
 }
@@ -103,7 +130,7 @@ void DistFunctionServer
 template <typename T>
 void DistFunctionServer
 ::MakeAliasCols(T& out, T& in, size_t startCol, size_t endCol,
-                const typename std::enable_if_t<IsMatrix<T>::value>* = 0)
+                const typename std::enable_if_t<IsMatrix<T>::value>*)
 {
   mlpack::MakeAlias(out, in, in.n_rows, endCol - startCol,
       startCol * in.n_rows);
@@ -112,7 +139,7 @@ void DistFunctionServer
 template <typename T>
 void DistFunctionServer
 ::MakeAliasCols(T& out, T& in, size_t startCol, size_t endCol,
-                const typename std::enable_if_t<IsCube<T>::value>* = 0)
+                const typename std::enable_if_t<IsCube<T>::value>*)
 {
   arma::cube a;
   out.resize(in.n_rows, endCol - startCol, in.n_slices);
@@ -132,8 +159,7 @@ std::vector<DataType> DistFunctionServer::Split(DataType& data, size_t n)
   for (size_t i = 0; i < n; i++)
   {
     size_t nCols = (data.n_cols - begin) / (n - i);
-    aliases.emplace_back();
-    MakeAliasCols(aliases.back(), data, begin, begin + nCols);
+    MakeAliasCols(aliases[i], data, begin, begin + nCols);
     begin += nCols + 1;
   }
 
@@ -149,29 +175,26 @@ MONS_ELEM_TYPE DistFunctionServer
   size_t beginTemp = begin;
   // Futures for responses from workers
   std::vector<std::future<Message::Gradient>> responses(clients.size());
-  // Aliases for the area of gradient each client is responsible for
-  std::vector<MONS_MAT_TYPE> gradientAliases(clients.size());
 
   for (size_t i = 0; i < clients.size(); i++)
   {
     // Split batch size into parts
-    size_t nCols = (batchSize - beginTemp) / (clients.size() - i);
+    size_t nCols = (batchSize - (begin - beginTemp)) / (clients.size() - i);
     Message::EvaluateWithGradient message;
-    message.SetTensor(parameters);
+    Message::Tensor::SetTensor(parameters, message.TensorData);
     message.EvaluateWithGradientData.begin = begin;
     message.EvaluateWithGradientData.batchSize = nCols;
 
     // Create future
-    responses[i] = network->SendAwaitable(message, clients[i]);
-    // Create alias
-    mlpack::MakeAlias(gradientAliases[i], gradient, gradient.n_rows, nCols,
-        beginTemp * gradient.n_rows);
+    responses[i] = clients[i].get().SendAwaitable
+        <Message::EvaluateWithGradient, Message::Gradient>(message);
     beginTemp += nCols + 1;
   }
 
   // Wait on all futures
   arma::wall_clock clock;
   clock.tic();
+  MONS_ELEM_TYPE obj = 0;
   while (true)
   {
     // TODO: timeout
@@ -184,17 +207,21 @@ MONS_ELEM_TYPE DistFunctionServer
           std::future_status::ready)
       {
         MONS_MAT_TYPE responseGradient;
-        responses[i].get().GetTensor(responseGradient);
-        gradientAliases[i] = responseGradient;
+        Message::Gradient gradientResp = responses[i].get();
+        Message::Tensor::GetTensor(responseGradient, gradientResp.TensorData);
+        obj += gradientResp.GradientData.objective;
+        gradient += responseGradient;
       }
       else
       {
         done = false;
       }
+      sleep(1);
     }
     if (done)
       break;
   }
+  return obj;
 }
 
 size_t DistFunctionServer::NumFunctions() const

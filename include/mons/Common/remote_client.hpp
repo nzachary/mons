@@ -27,10 +27,16 @@ public:
   std::future<ResponseType>
   SendAwaitable(MessageType& data);
 
+  // Send a message and wait for a status to be returned
+  // If `timeout` is > 0, the function will time out after that many seconds
+  // `error` is the value returned if there is an error or timeout
+  template <typename MessageType>
+  int SendOpWait(MessageType& data, double timeout = 15, int error = 1);
+
   // Called when message type is recieved from client
   // Register this way instead of templates to allow passing lambda
   #define REGISTER(Val) \
-  void OnRecieve(std::function<void(const Message::Val&)> callback);
+  void OnRecieve(std::function<bool(const Message::Val&)> callback);
   MONS_REGISTER_MESSAGE_TYPES
   #undef REGISTER
 private:

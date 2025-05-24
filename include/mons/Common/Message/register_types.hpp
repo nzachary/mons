@@ -7,7 +7,6 @@
 // Only register types that are not inherited by others
 // Otherwise, there may be ambiguity when casting
 #define MONS_REGISTER_MESSAGE_TYPES \
-  REGISTER(Heartbeat) \
   REGISTER(UpdatePredictors) \
   REGISTER(UpdateResponses) \
   REGISTER(UpdateWeights) \

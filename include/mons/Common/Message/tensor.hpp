@@ -110,9 +110,8 @@ public:
     std::vector<eT> data = Tensor::DataAsType<eT>(TensorData);
     
     // Placement new to avoid copy operation
-    new (&tensor) T(data.data(),
-        TensorData.dimensions[0], TensorData.dimensions[1],
-        TensorData.dimensions[2]);
+    new (&tensor) T(data.data(), TensorData.dimensions[0],
+        TensorData.dimensions[1], TensorData.dimensions[2]);
   }
 
   // Sets the tensor to be sent

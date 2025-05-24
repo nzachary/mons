@@ -73,11 +73,6 @@ void WriteData(mons::Message::Base::BaseDataStruct& data)
   RandomVal(data.sender);
 }
 
-void WriteData(mons::Message::Heartbeat::HeartbeatDataStruct& data)
-{
-  RandomVal(data.beatCount);
-}
-
 template <typename T>
 void WriteData(mons::Message::Tensor::TensorDataStruct& data)
 {
@@ -132,12 +127,6 @@ void ValidateData(mons::Message::Base::BaseDataStruct& data1,
   VALIDATE(reciever);
   VALIDATE(responseTo);
   VALIDATE(sender);
-}
-
-void ValidateData(mons::Message::Heartbeat::HeartbeatDataStruct& data1,
-                  mons::Message::Heartbeat::HeartbeatDataStruct& data2)
-{
-  VALIDATE(beatCount);
 }
 
 template <typename T>
@@ -206,19 +195,6 @@ size_t Deseralize(T& msg, mons::MessageBuffer buf)
 #define VALIDATE_STRUCT(struct) ValidateData(i.struct, o.struct)
 #define VALIDATE_STRUCT_TEMPLATE(struct, ...) ValidateData<__VA_ARGS__>(i.struct, o.struct)
 // ============================== Test cases ==============================
-void TestCaseHeartbeat()
-{
-  mons::Message::Heartbeat i, o;
-  WriteData(i.BaseData);
-  WriteData(i.HeartbeatData);
-  mons::MessageBuffer buf = i.mons::Message::Base::Serialize();
-  // Deserialize and check
-  size_t read = Deseralize(o, buf);
-  assert(read == buf.data.size());
-  VALIDATE_STRUCT(BaseData);
-  VALIDATE_STRUCT(HeartbeatData);
-}
-
 void TestCaseUpdatePredictors()
 {
   mons::Message::UpdatePredictors i, o;

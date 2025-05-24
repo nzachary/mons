@@ -91,6 +91,10 @@ DistFunctionClient
     begin = message.EvaluateWithGradientData.begin;
     batchSize = message.EvaluateWithGradientData.batchSize;
 
+    // Check if we're evaluating with more data than we actually have
+    size_t nCols = function.Get().NumFunctions();
+    assert(begin + batchSize <= nCols);
+
     double obj = EvaluateWithGradient(parameters, begin, gradient, batchSize);
 
     // Return the result

@@ -6,7 +6,6 @@
 
 #include "base.hpp"
 #include "tensor.hpp"
-#include "heartbeat.hpp"
 #include "update_predictors.hpp"
 #include "update_responses.hpp"
 #include "update_weights.hpp"

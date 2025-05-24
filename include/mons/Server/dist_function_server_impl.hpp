@@ -160,7 +160,7 @@ std::vector<DataType> DistFunctionServer::Split(DataType& data, size_t n)
   {
     size_t nCols = (data.n_cols - begin) / (n - i);
     MakeAliasCols(aliases[i], data, begin, begin + nCols);
-    begin += nCols + 1;
+    begin += (data.n_cols > 0) ? nCols : 0;
   }
 
   return std::move(aliases);
@@ -172,54 +172,82 @@ MONS_ELEM_TYPE DistFunctionServer
                        MONS_MAT_TYPE& gradient,
                        const size_t batchSize)
 {
-  size_t beginTemp = begin;
-  // Futures for responses from workers
-  std::vector<std::future<Message::Gradient>> responses(clients.size());
-
-  for (size_t i = 0; i < clients.size(); i++)
-  {
-    // Split batch size into parts
-    size_t nCols = (batchSize - (begin - beginTemp)) / (clients.size() - i);
-    Message::EvaluateWithGradient message;
-    Message::Tensor::SetTensor(parameters, message.TensorData);
-    message.EvaluateWithGradientData.begin = begin;
-    message.EvaluateWithGradientData.batchSize = nCols;
-
-    // Create future
-    responses[i] = clients[i].get().SendAwaitable
-        <Message::EvaluateWithGradient, Message::Gradient>(message);
-    beginTemp += nCols + 1;
-  }
-
-  // Wait on all futures
-  arma::wall_clock clock;
-  clock.tic();
   MONS_ELEM_TYPE obj = 0;
-  while (true)
+  size_t beginTemp = begin;
+
+  // Keep doing until the batch is done
+  while (beginTemp < begin + batchSize)
   {
-    // TODO: timeout
-    bool done = true;
-    for (size_t i = 0; i < responses.size(); i++)
+    // Futures for responses from workers
+    std::vector<std::future<Message::Gradient>> responses;
+
+    // Select only the clients that are good
+    std::vector<std::reference_wrapper<RemoteClient>> goodClients;
+    for (size_t i = 0; i < clients.size(); i++)
     {
-      if (!responses[i].valid())
-        continue;
-      if (responses[i].wait_for(std::chrono::seconds(10)) ==
-          std::future_status::ready)
-      {
-        MONS_MAT_TYPE responseGradient;
-        Message::Gradient gradientResp = responses[i].get();
-        Message::Tensor::GetTensor(responseGradient, gradientResp.TensorData);
-        obj += gradientResp.GradientData.objective;
-        gradient += responseGradient;
-      }
-      else
-      {
-        done = false;
-      }
-      sleep(1);
+      RemoteClient& client = clients[i];
+      // Try connect
+      if (!client.IsConnected())
+        client.Connect();
+      // Only add if connected
+      if (client.IsConnected())
+        goodClients.push_back(client);
     }
-    if (done)
-      break;
+    if (goodClients.size() == 0)
+    {
+      Log::Error("No connected clients");
+      sleep(10);
+    }
+
+    // Send batches to clients
+    for (size_t i = 0; i < goodClients.size(); i++)
+    {
+      // Split batch size into parts
+      size_t nCols = (batchSize - (beginTemp - begin)) / (goodClients.size() - i);
+      Message::EvaluateWithGradient message;
+      Message::Tensor::SetTensor(parameters, message.TensorData);
+      message.EvaluateWithGradientData.begin = begin / goodClients.size();
+      message.EvaluateWithGradientData.batchSize = nCols;
+  
+      // Create future
+      auto future = goodClients[i].get().SendAwaitable
+          <Message::EvaluateWithGradient, Message::Gradient>(message);
+      if (future.has_value())
+      {
+        responses.push_back(std::move(future.value()));
+        beginTemp += nCols;
+      }
+    }
+
+    // Wait on all futures
+    arma::wall_clock clock;
+    clock.tic();
+    while (true)
+    {
+      // TODO: timeout
+      bool done = true;
+      for (size_t i = 0; i < responses.size(); i++)
+      {
+        if (!responses[i].valid())
+          continue;
+        if (responses[i].wait_for(std::chrono::seconds(10)) ==
+            std::future_status::ready)
+        {
+          MONS_MAT_TYPE responseGradient;
+          Message::Gradient gradientResp = responses[i].get();
+          Message::Tensor::GetTensor(responseGradient, gradientResp.TensorData);
+          obj += gradientResp.GradientData.objective;
+          gradient += responseGradient;
+        }
+        else
+        {
+          done = false;
+        }
+        sleep(1);
+      }
+      if (done)
+        break;
+    }
   }
   return obj;
 }

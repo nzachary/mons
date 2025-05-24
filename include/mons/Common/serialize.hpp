@@ -123,9 +123,22 @@ struct IsVector<std::vector<T>>
 };
 
 template <typename T>
+struct IsString
+{
+  static const bool value = false;
+};
+
+template <>
+struct IsString<std::string>
+{
+  static const bool value = true;
+};
+
+template <typename T>
 struct HasSerialSpecialization
 {
-  static const bool value = IsVector<T>::value;
+  static const bool value = IsVector<T>::value ||
+      IsString<T>::value;
 };
 
 } // namespace Private
@@ -167,13 +180,15 @@ void Serialize(MessageBuffer& buffer,
 }
 
 // Serialize vector specialization
+// This also works for strings
 template <typename T>
 void Serialize(MessageBuffer& buffer,
                const T& val,
                bool direction,
                size_t start = -1,
                const typename std::enable_if_t<
-                 Private::IsVector<T>::value
+                 Private::IsVector<T>::value ||
+                 Private::IsString<T>::value
                >* = 0)
 {
   // Calculate offset here instead of depending on `_SerializePrivate` to calculate it

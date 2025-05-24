@@ -13,10 +13,12 @@ public:
   // Get or create a client on network with specified remote ID
   static RemoteClient& Get(Network& network, id_t id);
 
-  // Use `Get` instead
+  // Internal constructor. Use `Get` instead
   RemoteClient(Network& network, id_t id);
 
-  bool IsResponsive();
+  bool Connect();
+
+  bool IsConnected();
 
   // Send a message to client
   template <typename MessageType>
@@ -24,7 +26,7 @@ public:
 
   // Send a message to client and get a future containing a response message
   template <typename MessageType, typename ResponseType>
-  std::future<ResponseType>
+  std::optional<std::future<ResponseType>>
   SendAwaitable(MessageType& data);
 
   // Send a message and wait for a status to be returned
@@ -40,6 +42,7 @@ public:
   MONS_REGISTER_MESSAGE_TYPES
   #undef REGISTER
 private:
+
   // All instances
   // The first ID is the network host ID
   // Second ID is client ID
@@ -50,10 +53,6 @@ private:
 
   // Network this client is on
   Network* net;
-
-  // Time point of last recieved heartbeat
-  std::chrono::time_point<std::chrono::system_clock> lastBeat =
-      std::chrono::system_clock::now();
 };
 
 } // namespace mons

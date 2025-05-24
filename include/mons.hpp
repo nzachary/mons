@@ -1,6 +1,8 @@
 #ifndef MONS_HPP
 #define MONS_HPP
 
+#define MLPACK_ENABLE_ANN_SERIALIZATION
+
 #include <mlpack.hpp>
 
 #include "mons/version.hpp"

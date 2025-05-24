@@ -11,6 +11,7 @@
 #include <map>
 
 #include "Message/message_types.hpp"
+#include "socket.hpp"
 
 namespace mons {
 
@@ -23,7 +24,7 @@ public:
   // Get or create a network
   static Network& Get(id_t id);
 
-  // Use `Get` instead
+  // Internal constructor. Use `Get` instead
   Network(id_t id);
 private:
   // Send some message using a socket.
@@ -33,7 +34,7 @@ private:
 
   // Send some message using a socket and get a future containing a response message
   template <typename MessageType, typename ResponseType>
-  std::future<ResponseType>
+  std::optional<std::future<ResponseType>>
   SendAwaitable(MessageType& data,
                 id_t machine);
 
@@ -45,13 +46,8 @@ private:
   MONS_REGISTER_MESSAGE_TYPES
   #undef REGISTER
 
-  // Start a thread to recieve and handle messages
-  void StartReciever();
-  // Log an asio error if it is set.
-  void LogError(const asio::error_code& error);
-  // Send some raw binary data to the specified machine. Assumes socket is open and connected
-  void SendDataRaw(const MessageBuffer& data,
-                   id_t machine);
+  // Recieve messages from a peer until the connection is broken
+  void StartRecieve(id_t peer);
   // Parse network config from `network_config.txt`
   // Format is [ID];[IP];[PORT]
   void ParseNetworkConfig();
@@ -72,8 +68,11 @@ private:
   // Single `Network` instance per ID
   inline static std::map<id_t, Network> instances;
 
-  // Mutex for lock on sending data
-  inline static std::mutex networkMutex;
+  // asio execution context
+  asio::io_context context;
+
+  // Sockets to remote endpoints
+  std::vector<std::shared_ptr<Socket>> sockets;
 
   // The machine's network ID.
   // The server's ID is 0 and the clients have an ID

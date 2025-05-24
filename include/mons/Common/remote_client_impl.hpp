@@ -25,34 +25,34 @@ RemoteClient& RemoteClient::Get(Network& network, id_t id)
 
 RemoteClient::RemoteClient(Network& network, id_t id) : id(id), net(&network)
 {
-  // Listen for incoming heartbeats
-  OnRecieve([&](const Message::Heartbeat& message)
-  {
-    lastBeat = std::chrono::system_clock::now();
-    
-    return false;
-  });
-
-  // Create a thread to send out heartbeats but don't hold it
-  // It will keep running in the background
-  new std::thread([&]()
-  {
-    Message::Heartbeat beat;
-    while (true)
-    {
-      Send(beat);
-      beat.HeartbeatData.beatCount++;
-      sleep(5);
-    }
-  });
+  Connect();
 }
 
-bool RemoteClient::IsResponsive()
+bool RemoteClient::Connect()
 {
-  auto timeSinceLastBeat = std::chrono::system_clock::now() - lastBeat;
-  double secondsSince = std::chrono::duration_cast<std::chrono::seconds>
-      (timeSinceLastBeat).count();
-  return (secondsSince < 30);
+  // Server sends out connection requests, clients accept them
+  bool isClient = (net->id != 0);
+  bool success = false;
+  if (isClient)
+    success = net->sockets[this->id]->Listen();
+  else
+    success = net->sockets[this->id]->Connect();
+  
+  if (success)
+  {
+    // Start recieving messages from the client
+    std::thread reciever([this]()
+    {
+      net->StartRecieve(this->id);
+    });
+    reciever.detach();
+  }
+  return success;
+}
+
+bool RemoteClient::IsConnected()
+{
+  return net->sockets[id]->IsConnected();
 }
 
 template <typename MessageType>
@@ -62,7 +62,8 @@ void RemoteClient::Send(MessageType& message)
 }
 
 template <typename MessageType, typename ResponseType>
-std::future<ResponseType> RemoteClient::SendAwaitable(MessageType& message)
+std::optional<std::future<ResponseType>> RemoteClient
+::SendAwaitable(MessageType& message)
 {
   return net->SendAwaitable<MessageType, ResponseType>(message, id);
 }
@@ -70,15 +71,17 @@ std::future<ResponseType> RemoteClient::SendAwaitable(MessageType& message)
 template <typename MessageType>
 int RemoteClient::SendOpWait(MessageType& data, double timeout, int error)
 {
-  std::future<Message::OperationStatus> status =
+  std::optional<std::future<Message::OperationStatus>> status =
       SendAwaitable<MessageType, Message::OperationStatus>(data);
+  if (!status.has_value())
+    return 1;
   if (timeout > 0)
   {
     // Timeout logic
-    if (status.wait_for(std::chrono::milliseconds((int)(timeout * 1000))) ==
+    if (status.value().wait_for(std::chrono::milliseconds((int)(timeout * 1000))) ==
         std::future_status::ready)
     {
-      return status.get().OperationStatusData.status;
+      return status.value().get().OperationStatusData.status;
     }
     else
     {
@@ -89,7 +92,7 @@ int RemoteClient::SendOpWait(MessageType& data, double timeout, int error)
   else
   {
     // Wait infinitely
-    return status.get().OperationStatusData.status;
+    return status.value().get().OperationStatusData.status;
   }
 }
 

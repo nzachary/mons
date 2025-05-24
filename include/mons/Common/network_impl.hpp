@@ -28,29 +28,54 @@ Network& Network::Get(id_t id)
 
 Network::Network(id_t id) : id(id)
 {
+  context.run();
+
   ParseNetworkConfig();
 
-  // Start listener thread
-  StartReciever();
+  // Allow connections to local machine from any address
+  if ((endpoints[id].address().is_v4()))
+    endpoints[id].address(asio::ip::address_v4::any());
+  else
+    endpoints[id].address(asio::ip::address_v6::any());
+
+  // Initalize sockets
+  for (size_t remote = 0; remote < endpoints.size(); remote++)
+  {
+    std::shared_ptr<Socket> socket = std::make_shared<Socket>
+        (endpoints[id], endpoints[remote]);
+    sockets.push_back(socket);
+    // Don't initalize connections, that is done is `RemoteClient`
+  }
 }
 
 template <typename MessageType>
 void Network::Send(MessageType& message,
                    id_t machine)
 {
+  if (!sockets[machine]->IsConnected())
+  {
+    Log::Error("Cannot send - not connected");
+    return;
+  }
   // Set message sender/reciever
   message.BaseData.sender = id;
   message.BaseData.reciever = machine;
   MessageBuffer buffer = message.Message::Base::Serialize();
-  // Send message
-  SendDataRaw(buffer, machine);
+  
+  // Send data
+  sockets[machine]->Send(buffer);
 }
 
 template <typename MessageType, typename ResponseType>
-std::future<ResponseType> Network
+std::optional<std::future<ResponseType>> Network
 ::SendAwaitable(MessageType& message,
                 id_t machine)
 {
+  if (!sockets[machine]->IsConnected())
+  {
+    Log::Error("Cannot send - not connected");
+    return std::optional<std::future<ResponseType>>(std::nullopt);
+  }
   // Set message ID
   message.BaseData.id = idCounter++;
 
@@ -100,116 +125,67 @@ void Network \
 MONS_REGISTER_MESSAGE_TYPES
 #undef REGISTER
 
-void Network::StartReciever()
+void Network::StartRecieve(id_t peer)
 {
-  // Create a new thread but don't hold onto it
-  // It will just keep running in the background
-  new std::thread([&]()
+  Socket& socket = *sockets[peer];
+  while (true)
   {
-    while (true)
+    if (!sockets[peer]->IsConnected())
     {
-      // Accept incoming connection
-      asio::io_context context;
-      asio::ip::tcp::socket socket(context);
-      asio::ip::tcp::acceptor acceptor(context, endpoints[id]);
-      asio::error_code ec;
-      acceptor.accept(socket, ec);
-      LogError(ec);
-
-      // Recieve message
-      size_t totalRead = 0;
-      MessageBuffer buffer(0);
-      while (true)
-      {
-        const size_t BUFFER_INCREMENT = 128;
-        buffer.data.resize(buffer.data.size() + BUFFER_INCREMENT);
-        auto asioBuffer = asio::buffer(buffer.data.data() + totalRead,
-            BUFFER_INCREMENT);
-        totalRead += socket.read_some(asioBuffer, ec);
-        if (ec == asio::error::eof)
-          // Done recieving
-          break;
-        else
-          LogError(ec);
-      }
-      socket.close();
-
-      // Resize buffer down to remove trailing empty data
-      buffer.data.resize(totalRead);
-      buffer.deserializePtr = 0;
-
-      // Try to decode the header
-      Message::Base::BaseDataStruct header;
-      Message::Base::SerializeHeader(header, buffer, false);
-
-      // Check message API version
-      if (header.apiVersion != MONS_VERSION_NUMBER) {
-        Log::Error("Recieved message with version " +
-            std::to_string(header.apiVersion) +
-            " but expected " + std::to_string(MONS_VERSION_NUMBER));
-        continue;
-      }
-
-      // Create a shared_ptr with the correct underlying class
-      std::shared_ptr<Message::Base> message(nullptr);
-      #define REGISTER(Val) case Message::MessageTypes::Val: \
-          message = std::make_shared<Message::Val>(); break;
-      switch (header.messageType)
-      {
-        MONS_REGISTER_MESSAGE_TYPES
-      }
-      #undef REGISTER
-
-      // Write the header that was decoded earlier into message
-      message->BaseData = header;
-
-      // Call type's `Deserialize` and read the rest
-      size_t bytes = message->Deserialize(buffer);
-      if (bytes != header.messageNumBytes)
-      {
-        Log::Error("Error while deserializing message");
-        return;
-      }
-
-      // Call `PropagateMessage`
-      #define REGISTER(Val) case Message::MessageTypes::Val: \
-          PropagateMessage(*(Message::Val*)message.get()); break;
-      switch (header.messageType)
-      {
-        MONS_REGISTER_MESSAGE_TYPES
-      }
-      #undef REGISTER
+      Log::Error("Cannot recieve - not connected");
+      return;
     }
-  });
-}
+    // Recieve raw data
+    MessageBuffer buf(0);
+    asio::error_code ec;
+    socket.Recieve(buf);
 
-void Network::LogError(const asio::error_code& error)
-{
-  if (error)
-  {
-    Log::Error("Network error: " + error.message());
-  }
-}
+    // Try to decode the header
+    Message::Base::BaseDataStruct header;
+    Message::Base::SerializeHeader(header, buf, false);
 
-void Network::SendDataRaw(const MessageBuffer& data,
-                          id_t machine)
-{ 
-  auto lock = std::unique_lock(networkMutex);
-  // Connect to machine
-  asio::io_context context;
-  asio::ip::tcp::socket socket(context);
-  asio::error_code ec;
-  socket.connect(endpoints[machine], ec);
-  LogError(ec);
+    // Check message API version
+    if (header.apiVersion != MONS_VERSION_NUMBER) {
+      Log::Error("Recieved message with version " +
+          std::to_string(header.apiVersion) +
+          " but expected " + std::to_string(MONS_VERSION_NUMBER));
+      continue;
+    }
   
-  // Send data
-  size_t totalSent = 0;
-  while (totalSent < data.data.size())
-  {
-    auto asioBuffer = asio::buffer(data.data.data() + totalSent,
-        data.data.size() - totalSent);
-    totalSent += socket.write_some(asioBuffer, ec);
-    LogError(ec);
+    // Create a shared_ptr with the correct underlying class
+    std::shared_ptr<Message::Base> message(nullptr);
+    #define REGISTER(Val) case Message::MessageTypes::Val: \
+        message = std::make_shared<Message::Val>(); break;
+    switch (header.messageType)
+    {
+      MONS_REGISTER_MESSAGE_TYPES
+    }
+    #undef REGISTER
+    if (!message)
+    {
+      Log::Error("Error parsing message type");
+      continue;
+    }
+  
+    // Write the header that was decoded earlier into message
+    message->BaseData = header;
+
+    // Call type's `Deserialize` and read the rest
+    size_t bytes = message->Deserialize(buf);
+    if (bytes != header.messageNumBytes)
+    {
+      Log::Error("Error while deserializing message");
+      continue;
+    }
+
+    // Call `PropagateMessage`
+    #define REGISTER(Val) case Message::MessageTypes::Val: \
+        PropagateMessage(*(Message::Val*)message.get()); break;
+    switch (header.messageType)
+    {
+      MONS_REGISTER_MESSAGE_TYPES
+    }
+    #undef REGISTER
   }
 }
 
@@ -266,7 +242,6 @@ void Network::ParseNetworkConfig()
       }
       asio::error_code ec;
       ip = asio::ip::make_address(parts[1], ec);
-      LogError(ec);
 
       // Add endpoint
       asio::ip::tcp::endpoint endpoint(ip, port);
@@ -294,6 +269,8 @@ void Network::AddMachine(const asio::ip::tcp::endpoint& endpoint, id_t machine)
   endpoints[machine] = asio::ip::tcp::endpoint(endpoint);
 }
 
+#define Q(v) #v
+#define QQ(v) Q(v)
 #define REGISTER(Val) void Network::PropagateMessage(const Message::Val& message) \
 { \
   auto& cb = allCallbacks##Val[message.BaseData.sender]; \
@@ -303,6 +280,8 @@ void Network::AddMachine(const asio::ip::tcp::endpoint& endpoint, id_t machine)
 }
 MONS_REGISTER_MESSAGE_TYPES
 #undef REGISTER
+#undef QQ
+#undef Q
 
 } // namespace mons
 

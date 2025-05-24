@@ -2,22 +2,13 @@
 #include <fstream>
 #include <filesystem>
 
-#define MLPACK_ENABLE_ANN_SERIALIZATION
 #include "../include/mons.hpp"
 
-void InfiniteWait()
-{
-  while (true)
-  {
-    sleep(10);
-  }
-}
+bool work = true;
 
 void StartServer()
 {
   mons::Network& network = mons::Network::Get(0);
-  // Create a client on server network and connect to machine 1 (worker)
-  mons::RemoteClient& workerClient = mons::RemoteClient::Get(network, 1);
 
   // Set up server
   mons::Server::DistFunctionServer workServer;
@@ -28,8 +19,15 @@ void StartServer()
   ffn.Add<mlpack::Linear>(1);
   ffn.InputDimensions() = {2};
 
-  // Add client
-  workServer.AddClient(workerClient);
+  // Connect to clients
+  mons::RemoteClient& workerClient1 = mons::RemoteClient::Get(network, 1);
+  mons::RemoteClient& workerClient2 = mons::RemoteClient::Get(network, 2);
+  mons::RemoteClient& workerClient3 = mons::RemoteClient::Get(network, 3);
+
+  // Add clients
+  workServer.AddClient(workerClient1);
+  workServer.AddClient(workerClient2);
+  workServer.AddClient(workerClient3);
 
   // Start training
   MONS_PREDICTOR_TYPE pred(2, 500);
@@ -46,19 +44,27 @@ void StartServer()
   workServer.Train(pred, resp, adam, ens::ProgressBar());
 
   mons::Log::Status("Done!");
-  
-  InfiniteWait();
+  while (true)
+  {
+    sleep(10);
+  }
 }
 
-void StartClient()
+void StartClient(int id)
 {
-  mons::Network& network = mons::Network::Get(1);
+  mons::Network& network = mons::Network::Get(id);
   // Create a client on client network and connect to machine 0 (server)
   mons::RemoteClient& serverClient = mons::RemoteClient::Get(network, 0);
 
   mons::Client::DistFunctionClient worker(serverClient);
   
-  InfiniteWait();
+  // Wait infinitely
+  // Everything else is handled by the worker
+  // We just need to keep it in scope
+  while (work)
+  {
+    sleep(10);
+  }
 }
 
 int main()
@@ -71,16 +77,25 @@ int main()
     {
       mons::Log::FatalError("Failed to create network config");
     }
-    newConfig << "0;127.0.0.1;1337\n1;127.0.0.1;1338";
+    newConfig << "0;127.0.0.1;1337\n1;127.0.0.1;1338\n2;127.0.0.1;1339\n3;127.0.0.1;1340";
   }
-  // Create networks so they can start listening
-  mons::Network::Get(0);
+  // Start clients
   mons::Network::Get(1);
+  mons::Network::Get(2);
+  mons::Network::Get(3);
+  std::thread client1 = std::thread(StartClient, 1);
+  std::thread client2 = std::thread(StartClient, 2);
+  std::thread client3 = std::thread(StartClient, 3);
 
-  // Start server and client
+  // Start server
   sleep(1);
-  std::thread client = std::thread(StartClient);
-  std::thread server = std::thread(StartServer);
-  
-  InfiniteWait();
+  mons::Network::Get(0);
+  StartServer();
+
+  // Terminate clients
+  work = false;
+
+  client1.join();
+  client2.join();
+  client3.join();
 }

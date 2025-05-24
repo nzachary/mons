@@ -14,6 +14,7 @@
   REGISTER(EvaluateWithGradient) \
   REGISTER(Gradient) \
   REGISTER(OperationStatus) \
-  REGISTER(UpdateFunction)
+  REGISTER(UpdateFunction) \
+  REGISTER(UpdateParameters)
 
 #endif

@@ -73,6 +73,20 @@ DistFunctionClient
 
     return false;
   });
+  server.OnRecieve([&](const Message::UpdateParameters& message)
+  {
+    Message::OperationStatus status;
+    status.BaseData.responseTo = message.BaseData.id;
+    status.OperationStatusData.status = 0;
+
+    MONS_MAT_TYPE params;
+    Message::Tensor::GetTensor(function.Get().Parameters(),
+        message.TensorData);
+
+    server.Send(status);
+
+    return false;
+  });
 
   // Register functions that can be remotely called
   server.OnRecieve([&](const Message::Shuffle& message)

@@ -49,6 +49,8 @@ public:
   size_t NumFunctions() const;
   
   void Shuffle();
+
+  MONS_MAT_TYPE& Parameters() { return function.Get().Parameters(); };
 private:
   // Utility functions
   // Set predictors, responses, and weights
@@ -71,8 +73,11 @@ private:
   template <typename DataType>
   std::vector<DataType> Split(DataType& data, size_t n);
 
-  // List of connected clients
+  // List of known clients
   std::vector<std::reference_wrapper<RemoteClient>> clients;
+
+  // List of clients that have been initalized
+  std::vector<std::reference_wrapper<RemoteClient>> initalizedClients;
 
   // Number of functions since we don't hold on to training data
   size_t numFunctions;

@@ -15,7 +15,7 @@ void StartServer()
 
   // Set up network
   auto& ffn = workServer.GetFunction();
-  ffn.Add<mlpack::Linear>(10);
+  ffn.Add<mlpack::Linear>(20);
   ffn.Add<mlpack::Linear>(1);
   ffn.InputDimensions() = {2};
 
@@ -30,24 +30,20 @@ void StartServer()
   workServer.AddClient(workerClient3);
 
   // Start training
-  MONS_PREDICTOR_TYPE pred(2, 500);
-  MONS_RESPONSE_TYPE resp(1, 500);
-  for (size_t i = 0; i < 500; i++)
+  MONS_PREDICTOR_TYPE pred(2, 5000);
+  MONS_RESPONSE_TYPE resp(1, 5000);
+  for (size_t i = 0; i < 5000; i++)
   {
     double theta = 0.01 * i;
     pred(0, i) = std::sin(theta);
     pred(1, i) = std::cos(theta);
-    resp(0, i) = theta;
+    resp(0, i) = std::fmod(theta, 2 * M_PI);
   }
   ens::Adam adam;
-  adam.MaxIterations() = 500 * 5;
+  adam.MaxIterations() = 5000 * 5;
   workServer.Train(pred, resp, adam, ens::ProgressBar());
 
   mons::Log::Status("Done!");
-  while (true)
-  {
-    sleep(10);
-  }
 }
 
 void StartClient(int id)

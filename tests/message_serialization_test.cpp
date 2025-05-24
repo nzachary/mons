@@ -303,6 +303,19 @@ void TestCaseUpdateFunction()
   VALIDATE_STRUCT(UpdateFunctionData);
 }
 
+void TestCaseUpdateParameters()
+{
+  mons::Message::UpdateParameters i, o;
+  WriteData(i.BaseData);
+  WriteData<MONS_MAT_TYPE>(i.TensorData);
+  mons::MessageBuffer buf = i.mons::Message::Base::Serialize();
+  // Deserialize and check
+  size_t read = Deseralize(o, buf);
+  assert(read == buf.data.size());
+  VALIDATE_STRUCT(BaseData);
+  VALIDATE_STRUCT_TEMPLATE(TensorData, MONS_MAT_TYPE);
+}
+
 #define Q(v) #v
 #define QQ(v) Q(v)
 

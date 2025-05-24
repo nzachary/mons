@@ -15,5 +15,6 @@
 #include "cereal.hpp"
 #include "operation_status.hpp"
 #include "update_function.hpp"
+#include "update_parameters.hpp"
 
 #endif

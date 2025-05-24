@@ -2,6 +2,7 @@
 #define MONS_SERVER_DIST_FUNCTION_SERVER_IMPL_HPP
 
 #include "dist_function_server.hpp"
+#include "update_remote_params_callback.hpp"
 
 namespace mons {
 namespace Server {
@@ -58,6 +59,7 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
                           OptimizerType& optimizer,
                           CallbackTypes&&... callbacks)
 {
+  initalizedClients.clear();
   // Prepare function
   function._SetInputDims(function.Get().InputDimensions());
   function.Initalize(function.Get());
@@ -66,13 +68,16 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
   Message::Cereal::Cerealize(function.Get(), message.CerealData);
   message.SetInputDimension(function.Get().InputDimensions());
   for (RemoteClient& client : clients)
-    client.SendOpWait(message);
-  // Send data
-  // Sending after function so that they aren't reset
+  {
+    if (client.SendOpWait(message) == 0)
+      initalizedClients.push_back(client);
+  }
+  // Send data to clients
   ResetData(predictors, responses, weights);
   // Optimize
   const typename MONS_ELEM_TYPE out =
-      optimizer.Optimize(*this, function.Get().Parameters(), callbacks...);
+      optimizer.Optimize(*this, this->Parameters(),
+      UpdateRemoteParamsCallback(initalizedClients), callbacks...);
   return out;
 }
 
@@ -83,15 +88,8 @@ void DistFunctionServer
 {
   numFunctions = responses.n_cols;
 
-  // Split parameters into parts
-  std::vector<MONS_PREDICTOR_TYPE> predictorAliases =
-      Split(predictors, clients.size());
-  std::vector<MONS_RESPONSE_TYPE> responseAliases =
-      Split(responses, clients.size());
-  std::vector<MONS_WEIGHT_TYPE> weightAliases =
-      Split(weights, clients.size());
   // Send each client their parts
-  for (size_t i = 0; i < clients.size(); i++)
+  for (size_t i = 0; i < initalizedClients.size(); i++)
   {
     Message::UpdatePredictors predictorsMessage;
     Message::UpdateResponses responsesMessage;
@@ -99,12 +97,9 @@ void DistFunctionServer
 
     // Write data
     RemoteClient& client = clients[i];
-    Message::Tensor::SetTensor(predictorAliases[i],
-        predictorsMessage.TensorData);
-    Message::Tensor::SetTensor(responseAliases[i],
-        responsesMessage.TensorData);
-    Message::Tensor::SetTensor(weightAliases[i],
-        weightsMessage.TensorData);
+    Message::Tensor::SetTensor(predictors, predictorsMessage.TensorData);
+    Message::Tensor::SetTensor(responses, responsesMessage.TensorData);
+    Message::Tensor::SetTensor(weights, weightsMessage.TensorData);
 
     // Send to client
     #ifdef MONS_PREDICTOR_NAME
@@ -185,7 +180,7 @@ MONS_ELEM_TYPE DistFunctionServer
     std::vector<std::reference_wrapper<RemoteClient>> goodClients;
     for (size_t i = 0; i < clients.size(); i++)
     {
-      RemoteClient& client = clients[i];
+      RemoteClient& client = initalizedClients[i];
       // Try connect
       if (!client.IsConnected())
         client.Connect();
@@ -197,6 +192,7 @@ MONS_ELEM_TYPE DistFunctionServer
     {
       Log::Error("No connected clients");
       sleep(10);
+      continue;
     }
 
     // Send batches to clients
@@ -206,7 +202,7 @@ MONS_ELEM_TYPE DistFunctionServer
       size_t nCols = (batchSize - (beginTemp - begin)) / (goodClients.size() - i);
       Message::EvaluateWithGradient message;
       Message::Tensor::SetTensor(parameters, message.TensorData);
-      message.EvaluateWithGradientData.begin = begin / goodClients.size();
+      message.EvaluateWithGradientData.begin = beginTemp;
       message.EvaluateWithGradientData.batchSize = nCols;
   
       // Create future
@@ -243,7 +239,6 @@ MONS_ELEM_TYPE DistFunctionServer
         {
           done = false;
         }
-        sleep(1);
       }
       if (done)
         break;
@@ -259,7 +254,9 @@ size_t DistFunctionServer::NumFunctions() const
 
 void DistFunctionServer::Shuffle()
 {
-  
+  Message::Shuffle message;
+  for (RemoteClient& client : initalizedClients)
+    client.Send(message);
 }
 
 } // namespace Server

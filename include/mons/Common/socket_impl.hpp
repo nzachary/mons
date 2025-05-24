@@ -57,7 +57,7 @@ bool Socket::Listen()
   // TODO: better timing
   // If the listener isn't ready when connecting client recieves the new port,
   // 1) The incoming connection is refused and 2) Listener is stuck waiting
-  sleep(1);
+  usleep(1000);
 
   // Send port of socket to peer so it can connect to the new socket
   MessageBuffer buf(0);

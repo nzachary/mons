@@ -27,7 +27,7 @@ public:
   // Send a message to client and get a future containing a response message
   template <typename MessageType, typename ResponseType>
   std::optional<std::future<ResponseType>>
-  SendAwaitable(MessageType& data);
+  SendAwaitable(MessageType& data, uint64_t messageId = -1);
 
   // Send a message and wait for a status to be returned
   // If `timeout` is > 0, the function will time out after that many seconds

@@ -5,14 +5,14 @@
 #include <cstdlib>
 
 template <typename T>
-void RandomVal(T& v, T minV, T maxV)
+void RandomVal(T &v, T minV, T maxV)
 {
   int ran = rand();
   v = minV + (maxV - minV) * ((double)ran / RAND_MAX);
 }
 
 template <typename T>
-void RandomVal(T& v)
+void RandomVal(T &v)
 {
   T minV = std::numeric_limits<T>::min();
   T maxV = std::numeric_limits<T>::max();
@@ -20,7 +20,7 @@ void RandomVal(T& v)
 }
 
 template <typename eT>
-void RandTensor(arma::Row<eT>& tensor)
+void RandTensor(arma::Row<eT> &tensor)
 {
   int r;
   RandomVal(r, 5, 50);
@@ -29,7 +29,7 @@ void RandTensor(arma::Row<eT>& tensor)
 }
 
 template <typename eT>
-void RandTensor(arma::Mat<eT>& tensor)
+void RandTensor(arma::Mat<eT> &tensor)
 {
   int r, c;
   RandomVal(r, 5, 50);
@@ -39,7 +39,7 @@ void RandTensor(arma::Mat<eT>& tensor)
 }
 
 template <typename eT>
-void RandTensor(arma::Cube<eT>& tensor)
+void RandTensor(arma::Cube<eT> &tensor)
 {
   int r, c, s;
   RandomVal(r, 5, 50);
@@ -50,7 +50,7 @@ void RandTensor(arma::Cube<eT>& tensor)
 }
 
 template <typename T>
-void ValidateArma(T& tensor1, T& tensor2, double eps)
+void ValidateArma(T &tensor1, T &tensor2, double eps)
 {
   using eT = typename T::elem_type;
   T diff = tensor1 - tensor2;
@@ -62,11 +62,9 @@ void ValidateArma(T& tensor1, T& tensor2, double eps)
 }
 
 // ============================== Write structs ==============================
-void WriteData(mons::Message::Base::BaseDataStruct& data)
+void WriteData(mons::Message::Base::BaseDataStruct &data)
 {
-  RandomVal(data.apiVersion);
   RandomVal(data.id);
-  RandomVal(data.messageNumBytes);
   RandomVal(data.messageType);
   RandomVal(data.reciever);
   RandomVal(data.responseTo);
@@ -74,37 +72,37 @@ void WriteData(mons::Message::Base::BaseDataStruct& data)
 }
 
 template <typename T>
-void WriteData(mons::Message::Tensor::TensorDataStruct& data)
+void WriteData(mons::Message::Tensor::TensorDataStruct &data)
 {
   T tensor;
   RandTensor(tensor);
   mons::Message::Tensor::SetTensor(tensor, data);
 }
 
-void WriteData(mons::Message::EvaluateWithGradient::EvaluateWithGradientDataStruct& data)
+void WriteData(mons::Message::EvaluateWithGradient::EvaluateWithGradientDataStruct &data)
 {
   RandomVal(data.batchSize);
   RandomVal(data.begin);
 }
 
-void WriteData(mons::Message::Gradient::GradientDataStruct& data)
+void WriteData(mons::Message::Gradient::GradientDataStruct &data)
 {
   RandomVal(data.objective);
 }
 
-void WriteData(mons::Message::OperationStatus::OperationStatusStruct& data)
+void WriteData(mons::Message::OperationStatus::OperationStatusStruct &data)
 {
   RandomVal(data.status);
 }
 
-void WriteData(mons::Message::Cereal::CerealDataStruct& data)
+void WriteData(mons::Message::Cereal::CerealDataStruct &data)
 {
   arma::mat obj;
   RandTensor(obj);
   mons::Message::Cereal::Cerealize(obj, data);
 }
 
-void WriteData(mons::Message::UpdateFunction::UpdateFunctionDataStruct& data)
+void WriteData(mons::Message::UpdateFunction::UpdateFunctionDataStruct &data)
 {
   RandomVal(data.numDims, (uint16_t)5, (uint16_t)50);
   data.inputDimensions.resize(data.numDims);
@@ -114,24 +112,27 @@ void WriteData(mons::Message::UpdateFunction::UpdateFunctionDataStruct& data)
   }
 }
 
+void WriteData(mons::Message::ConnectInfo::ConnectInfoDataStruct &data)
+{
+  RandomVal(data.config);
+}
+
 #define VALIDATE(member) assert(data1.member == data2.member)
 // ============================== Validate structs ==============================
-void ValidateData(mons::Message::Base::BaseDataStruct& data1,
-                  mons::Message::Base::BaseDataStruct& data2)
+void ValidateData(mons::Message::Base::BaseDataStruct &data1,
+                  mons::Message::Base::BaseDataStruct &data2)
 {
-  VALIDATE(apiVersion);
   VALIDATE(id);
   // These are set by `Serialize` so it won't match
-  //VALIDATE(messageNumBytes);
-  //VALIDATE(messageType);
+  // VALIDATE(messageType);
   VALIDATE(reciever);
   VALIDATE(responseTo);
   VALIDATE(sender);
 }
 
 template <typename T>
-void ValidateData(mons::Message::Tensor::TensorDataStruct& data1,
-                  mons::Message::Tensor::TensorDataStruct& data2)
+void ValidateData(mons::Message::Tensor::TensorDataStruct &data1,
+                  mons::Message::Tensor::TensorDataStruct &data2)
 {
   T tensor1, tensor2;
   mons::Message::Tensor::GetTensor(tensor1, data1);
@@ -139,27 +140,27 @@ void ValidateData(mons::Message::Tensor::TensorDataStruct& data1,
   ValidateArma(tensor1, tensor2, 1e-3);
 }
 
-void ValidateData(mons::Message::EvaluateWithGradient::EvaluateWithGradientDataStruct& data1,
-                  mons::Message::EvaluateWithGradient::EvaluateWithGradientDataStruct& data2)
+void ValidateData(mons::Message::EvaluateWithGradient::EvaluateWithGradientDataStruct &data1,
+                  mons::Message::EvaluateWithGradient::EvaluateWithGradientDataStruct &data2)
 {
   VALIDATE(batchSize);
   VALIDATE(begin);
 }
 
-void ValidateData(mons::Message::Gradient::GradientDataStruct& data1,
-                  mons::Message::Gradient::GradientDataStruct& data2)
+void ValidateData(mons::Message::Gradient::GradientDataStruct &data1,
+                  mons::Message::Gradient::GradientDataStruct &data2)
 {
   VALIDATE(objective);
 }
 
-void ValidateData(mons::Message::OperationStatus::OperationStatusStruct& data1,
-                  mons::Message::OperationStatus::OperationStatusStruct& data2)
+void ValidateData(mons::Message::OperationStatus::OperationStatusStruct &data1,
+                  mons::Message::OperationStatus::OperationStatusStruct &data2)
 {
   VALIDATE(status);
 }
 
-void ValidateData(mons::Message::Cereal::CerealDataStruct& data1,
-                  mons::Message::Cereal::CerealDataStruct& data2)
+void ValidateData(mons::Message::Cereal::CerealDataStruct &data1,
+                  mons::Message::Cereal::CerealDataStruct &data2)
 {
   arma::mat obj1, obj2;
   mons::Message::Cereal::Decerealize(obj1, data1);
@@ -167,8 +168,8 @@ void ValidateData(mons::Message::Cereal::CerealDataStruct& data1,
   ValidateArma(obj1, obj2, 1e-3);
 }
 
-void ValidateData(mons::Message::UpdateFunction::UpdateFunctionDataStruct& data1,
-                  mons::Message::UpdateFunction::UpdateFunctionDataStruct& data2)
+void ValidateData(mons::Message::UpdateFunction::UpdateFunctionDataStruct &data1,
+                  mons::Message::UpdateFunction::UpdateFunctionDataStruct &data2)
 {
   VALIDATE(numDims);
   for (size_t i = 0; i < data1.numDims; i++)
@@ -177,10 +178,16 @@ void ValidateData(mons::Message::UpdateFunction::UpdateFunctionDataStruct& data1
   }
 }
 
+void ValidateData(mons::Message::ConnectInfo::ConnectInfoDataStruct &data1,
+                  mons::Message::ConnectInfo::ConnectInfoDataStruct &data2)
+{
+  VALIDATE(config);
+}
+
 // Matches the deserializing method used in `Network`
 // Returns bytes read
 template <typename T>
-size_t Deseralize(T& msg, mons::MessageBuffer buf)
+size_t Deseralize(T &msg, mons::MessageBuffer buf)
 {
   // Reset bytes written/read after serializing
   buf.processed = 0;
@@ -316,6 +323,19 @@ void TestCaseUpdateParameters()
   VALIDATE_STRUCT_TEMPLATE(TensorData, MONS_MAT_TYPE);
 }
 
+void TestCaseConnectInfo()
+{
+  mons::Message::ConnectInfo i, o;
+  WriteData(i.BaseData);
+  WriteData(i.ConnectInfoData);
+  mons::MessageBuffer buf = i.mons::Message::Base::Serialize();
+  // Deserialize and check
+  size_t read = Deseralize(o, buf);
+  assert(read == buf.data.size());
+  VALIDATE_STRUCT(BaseData);
+  VALIDATE_STRUCT(ConnectInfoData);
+}
+
 #define Q(v) #v
 #define QQ(v) Q(v)
 
@@ -324,9 +344,11 @@ int main()
   // Run each test 3 times
   for (size_t i = 0; i < 3; i++)
   {
-    #define REGISTER(Val) mons::Log::Debug("Running test case " QQ(Val)); TestCase##Val();
+#define REGISTER(Val)                             \
+  mons::Log::Debug("Running test case " QQ(Val)); \
+  TestCase##Val();
     MONS_REGISTER_MESSAGE_TYPES
-    #undef REGISTER
+#undef REGISTER
   }
   mons::Log::Status("All message serialization tests passed");
   return 0;

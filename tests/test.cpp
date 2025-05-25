@@ -19,15 +19,10 @@ void StartServer()
   ffn.Add<mlpack::Linear>(1);
   ffn.InputDimensions() = {2};
 
-  // Connect to clients
-  mons::RemoteClient& workerClient1 = mons::RemoteClient::Get(network, 1);
-  mons::RemoteClient& workerClient2 = mons::RemoteClient::Get(network, 2);
-  mons::RemoteClient& workerClient3 = mons::RemoteClient::Get(network, 3);
-
   // Add clients
-  workServer.AddClient(workerClient1);
-  workServer.AddClient(workerClient2);
-  workServer.AddClient(workerClient3);
+  workServer.AddClient(mons::RemoteClient::Get(network, 1));
+  workServer.AddClient(mons::RemoteClient::Get(network, 2));
+  workServer.AddClient(mons::RemoteClient::Get(network, 3));
 
   // Start training
   MONS_PREDICTOR_TYPE pred(2, 5000);
@@ -41,6 +36,8 @@ void StartServer()
   }
   ens::Adam adam;
   adam.MaxIterations() = 5000 * 5;
+  adam.StepSize() = 1e-6;
+
   workServer.Train(pred, resp, adam, ens::ProgressBar());
 
   mons::Log::Status("Done!");
@@ -59,7 +56,7 @@ void StartClient(int id)
   // We just need to keep it in scope
   while (work)
   {
-    sleep(10);
+    sleep(1);
   }
 }
 
@@ -76,9 +73,6 @@ int main()
     newConfig << "0;127.0.0.1;1337\n1;127.0.0.1;1338\n2;127.0.0.1;1339\n3;127.0.0.1;1340";
   }
   // Start clients
-  mons::Network::Get(1);
-  mons::Network::Get(2);
-  mons::Network::Get(3);
   std::thread client1 = std::thread(StartClient, 1);
   std::thread client2 = std::thread(StartClient, 2);
   std::thread client3 = std::thread(StartClient, 3);

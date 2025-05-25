@@ -1,11 +1,21 @@
 /*
- * To set your own config, define all of the types and 
- * before including this file.
+ * Default configuration
+ * To set your own config, you can either 1) modify this file or 2) define
+ * MONS_CUSTOM_CONFIG all of the following:
+ * MONS_MAT_TYPE
+ * MONS_FUNCTION_TYPE
+ * MONS_PREDICTOR_TYPE
+ * MONS_RESPONSE_TYPE
+ * MONS_WEIGHT_TYPE
+ * MONS_PREDICTOR_NAME
+ * MONS_RESPONSE_NAME
+ * MONS_WEIGHT_NAME
+ * 
+ * Do not set the _NAME defines if they aren't used. eg. FFN doesn't have a
+ * weights parameter so MONS_WEIGHT_NAME is not defined
  */
 #ifndef MONS_CONFIG_HPP
 #define MONS_CONFIG_HPP
-
-#include <mlpack/core/util/arma_traits.hpp>
 
 #ifndef MONS_CUSTOM_CONFIG
 
@@ -27,6 +37,8 @@
 #endif
 
 // No touchy beyond this point
+#include <mlpack/core/util/arma_traits.hpp>
+
 #define MONS_ELEM_TYPE MONS_MAT_TYPE::elem_type
 #define MONS_CUBE_TYPE GetCubeType<MONS_MAT_TYPE>::type
 #define MONS_ROW_TYPE GetRowType<MONS_MAT_TYPE>::type

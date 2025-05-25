@@ -15,6 +15,7 @@
   REGISTER(Gradient) \
   REGISTER(OperationStatus) \
   REGISTER(UpdateFunction) \
-  REGISTER(UpdateParameters)
+  REGISTER(UpdateParameters) \
+  REGISTER(ConnectInfo)
 
 #endif

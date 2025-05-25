@@ -25,7 +25,8 @@ RemoteClient& RemoteClient::Get(Network& network, id_t id)
 
 RemoteClient::RemoteClient(Network& network, id_t id) : id(id), net(&network)
 {
-  Connect();
+  if (!Connect())
+    Log::Error("Error connecting to client " + std::to_string(id));
 }
 
 bool RemoteClient::Connect()
@@ -46,8 +47,39 @@ bool RemoteClient::Connect()
       net->StartRecieve(this->id);
     });
     reciever.detach();
+
+    // Send configuration information
+    Message::ConnectInfo message;
+    message.BaseData.responseTo = 0;
+    auto returnInfo = SendAwaitable<Message::ConnectInfo,
+        Message::ConnectInfo>(message, 0);
+    // Check if config matches
+    if (!returnInfo.has_value())
+    {
+      Log::Error("Error sending configuration info");
+      return false;
+    }
+    else
+    {
+      if (returnInfo->wait_for(std::chrono::seconds(5)) !=
+          std::future_status::ready)
+      {
+        Log::Error("Configuration timed out");
+        return false;
+      }
+      else
+      {
+        if (returnInfo->get().ConnectInfoData.config == CONFIG_HASH)
+          return true; // Config matches
+        else
+        {
+          Log::Error("Configuration mismatch");
+          return false;
+        }
+      }
+    }
   }
-  return success;
+  return false;
 }
 
 bool RemoteClient::IsConnected()
@@ -63,9 +95,9 @@ void RemoteClient::Send(MessageType& message)
 
 template <typename MessageType, typename ResponseType>
 std::optional<std::future<ResponseType>> RemoteClient
-::SendAwaitable(MessageType& message)
+::SendAwaitable(MessageType& message, uint64_t messageId)
 {
-  return net->SendAwaitable<MessageType, ResponseType>(message, id);
+  return net->SendAwaitable<MessageType, ResponseType>(message, id, messageId);
 }
 
 template <typename MessageType>

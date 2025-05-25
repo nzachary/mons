@@ -207,6 +207,8 @@ void Socket::SocketSend(const MessageBuffer& buf,
         std::chrono::milliseconds((size_t)(1000 * timeout)));
     if (!ec && status == std::future_status::ready)
       totalSent += reader.get();
+    else
+      socket.cancel(ec);
 
     if (ec)
       return;
@@ -238,6 +240,8 @@ bool Socket::SocketRecieve(MessageBuffer& buf,
         std::chrono::milliseconds((size_t)(1000 * timeout)));
     if (!ec && status == std::future_status::ready)
       totalRead += reader.get();
+    else
+      socket.cancel(ec);
       
     // Get total length if it isn't known yet
     if (totalLen < 0 && totalRead >= sizeof(totalLen))

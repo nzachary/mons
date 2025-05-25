@@ -36,7 +36,8 @@ private:
   template <typename MessageType, typename ResponseType>
   std::optional<std::future<ResponseType>>
   SendAwaitable(MessageType& data,
-                id_t machine);
+                id_t machine,
+                uint64_t messageId = -1);
 
   // `RegisterEvent` Registers a callback to run when a message is recieved
   // Register events this way instead of templates to allow passing lambda

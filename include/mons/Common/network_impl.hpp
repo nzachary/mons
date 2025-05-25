@@ -69,7 +69,8 @@ void Network::Send(MessageType& message,
 template <typename MessageType, typename ResponseType>
 std::optional<std::future<ResponseType>> Network
 ::SendAwaitable(MessageType& message,
-                id_t machine)
+                id_t machine,
+                uint64_t messageId)
 {
   if (!sockets[machine]->IsConnected())
   {
@@ -77,10 +78,11 @@ std::optional<std::future<ResponseType>> Network
     return std::optional<std::future<ResponseType>>(std::nullopt);
   }
   // Set message ID
-  message.BaseData.id = idCounter++;
+  if (messageId == (uint64_t)-1)
+    messageId = idCounter++;
+  message.BaseData.id = messageId;
 
   // Launch waiter
-  uint64_t messageId = message.BaseData.id;
   std::future<ResponseType> waitable = std::async(std::launch::async,
       [this, messageId, machine]()
   {
@@ -143,14 +145,6 @@ void Network::StartRecieve(id_t peer)
     // Try to decode the header
     Message::Base::BaseDataStruct header;
     Message::Base::SerializeHeader(header, buf, false);
-
-    // Check message API version
-    if (header.apiVersion != MONS_VERSION_NUMBER) {
-      Log::Error("Recieved message with version " +
-          std::to_string(header.apiVersion) +
-          " but expected " + std::to_string(MONS_VERSION_NUMBER));
-      continue;
-    }
   
     // Create a shared_ptr with the correct underlying class
     std::shared_ptr<Message::Base> message(nullptr);
@@ -170,9 +164,9 @@ void Network::StartRecieve(id_t peer)
     // Write the header that was decoded earlier into message
     message->BaseData = header;
 
-    // Call type's `Deserialize` and read the rest
+    // Call type's `Deserialize`
     size_t bytes = message->Deserialize(buf);
-    if (bytes != header.messageNumBytes)
+    if (bytes != buf.data.size())
     {
       Log::Error("Error while deserializing message");
       continue;

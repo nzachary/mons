@@ -16,5 +16,6 @@
 #include "operation_status.hpp"
 #include "update_function.hpp"
 #include "update_parameters.hpp"
+#include "connect_info.hpp"
 
 #endif

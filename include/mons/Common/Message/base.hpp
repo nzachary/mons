@@ -33,14 +33,8 @@ class Base
 public:
   struct BaseDataStruct
   {
-    // Version of api used when creating this
-    uint32_t apiVersion = MONS_VERSION_NUMBER;
-
     // Type ID of message being sent; Set in `vector<char> Base::Serialize`
     uint32_t messageType = 0;
-
-    // Total number of bytes in message; Set in `vector<char> Base::Serialize`
-    uint32_t messageNumBytes = 0;
   
     // Sending machine's ID
     uint32_t sender = -1;
@@ -62,11 +56,9 @@ public:
   {
     MessageBuffer buffer(0);
     Serialize(buffer, true);
-    // Overwrite `messageType` and `messageNumBytes`
+    // Overwrite `messageType`
     mons::Serialize(buffer, MessageType(), true,
         offsetof(BaseDataStruct, BaseDataStruct::messageType));
-    mons::Serialize(buffer, (uint32_t)buffer.data.size(), true,
-        offsetof(BaseDataStruct, BaseDataStruct::messageNumBytes));
     return buffer;
   };
 
@@ -83,11 +75,8 @@ public:
   static void
   SerializeHeader(BaseDataStruct& header, MessageBuffer& buffer, bool direction)
   {
-    mons::Serialize(buffer, header.apiVersion, direction);
     // Overwritten in `Serialize` above
     mons::Serialize(buffer, header.messageType, direction);
-    // Overwritten in `Serialize` above
-    mons::Serialize(buffer, header.messageNumBytes, direction);
     mons::Serialize(buffer, header.sender, direction);
     mons::Serialize(buffer, header.reciever, direction);
     mons::Serialize(buffer, header.id, direction);

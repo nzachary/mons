@@ -178,7 +178,7 @@ MONS_ELEM_TYPE DistFunctionServer
 
     // Select only the clients that are good
     std::vector<std::reference_wrapper<RemoteClient>> goodClients;
-    for (size_t i = 0; i < clients.size(); i++)
+    for (size_t i = 0; i < initalizedClients.size(); i++)
     {
       RemoteClient& client = initalizedClients[i];
       // Try connect

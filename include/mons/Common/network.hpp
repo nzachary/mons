@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory> // std::shared_ptr
 #include <map>
+#include <optional>
 
 #include "Message/message_types.hpp"
 #include "socket.hpp"
@@ -26,6 +27,9 @@ public:
 
   // Internal constructor. Use `Get` instead
   Network(id_t id);
+
+  // Returns a list of known endpoints
+  const std::vector<asio::ip::tcp::endpoint>& GetEndpoints();
 private:
   // Send some message using a socket.
   template <typename MessageType>

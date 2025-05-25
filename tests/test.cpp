@@ -11,18 +11,15 @@ void StartServer()
   mons::Network& network = mons::Network::Get(0);
 
   // Set up server
-  mons::Server::DistFunctionServer workServer;
+  mons::Server::DistFunctionServer workServer(network);
 
   // Set up network
   auto& ffn = workServer.GetFunction();
-  ffn.Add<mlpack::Linear>(20);
+  ffn.Add<mlpack::Linear>(50);
+  ffn.Add<mlpack::Linear>(50);
+  ffn.Add<mlpack::Linear>(50);
   ffn.Add<mlpack::Linear>(1);
   ffn.InputDimensions() = {2};
-
-  // Add clients
-  workServer.AddClient(mons::RemoteClient::Get(network, 1));
-  workServer.AddClient(mons::RemoteClient::Get(network, 2));
-  workServer.AddClient(mons::RemoteClient::Get(network, 3));
 
   // Start training
   MONS_PREDICTOR_TYPE pred(2, 5000);
@@ -35,7 +32,8 @@ void StartServer()
     resp(0, i) = std::fmod(theta, 2 * M_PI);
   }
   ens::Adam adam;
-  adam.MaxIterations() = 5000 * 5;
+  adam.MaxIterations() = 5000 * 50;
+  adam.BatchSize() = 100;
   adam.StepSize() = 1e-6;
 
   workServer.Train(pred, resp, adam, ens::ProgressBar());
@@ -70,12 +68,13 @@ int main()
     {
       mons::Log::FatalError("Failed to create network config");
     }
-    newConfig << "0;127.0.0.1;1337\n1;127.0.0.1;1338\n2;127.0.0.1;1339\n3;127.0.0.1;1340";
+    newConfig << "0;127.0.0.1;1337\n1;127.0.0.1;1338\n2;127.0.0.1;1339\n"
+        "3;127.0.0.1;1340\n4;127.0.0.1;1341\n5;127.0.0.1;1342";
   }
   // Start clients
-  std::thread client1 = std::thread(StartClient, 1);
-  std::thread client2 = std::thread(StartClient, 2);
-  std::thread client3 = std::thread(StartClient, 3);
+  std::vector<std::thread> clientThreads(5);
+  for (size_t i = 0; i < clientThreads.size(); i++)
+    clientThreads[i] = std::thread(StartClient, i + 1);
 
   // Start server
   sleep(1);
@@ -84,8 +83,6 @@ int main()
 
   // Terminate clients
   work = false;
-
-  client1.join();
-  client2.join();
-  client3.join();
+  for (size_t i = 0; i < clientThreads.size(); i++)
+    clientThreads[i].join();
 }

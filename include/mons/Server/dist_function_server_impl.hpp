@@ -7,10 +7,13 @@
 namespace mons {
 namespace Server {
 
-// Add a worker client
-void DistFunctionServer::AddClient(RemoteClient& client)
+DistFunctionServer::DistFunctionServer(mons::Network& network)
 {
-  clients.push_back(client);
+  auto& endpoints = network.GetEndpoints();
+  for (size_t i = 1; i < endpoints.size(); i++)
+  {
+    clients.push_back(RemoteClient::Get(network, i));
+  }
 }
 
 // Secondary overload, look further down for main overload
@@ -220,12 +223,12 @@ MONS_ELEM_TYPE DistFunctionServer
     clock.tic();
     while (true)
     {
-      // TODO: timeout
       bool done = true;
       for (size_t i = 0; i < responses.size(); i++)
       {
         if (!responses[i].valid())
           continue;
+        // TODO: timeout length in case it takes longer than 10s to do work
         if (responses[i].wait_for(std::chrono::seconds(10)) ==
             std::future_status::ready)
         {

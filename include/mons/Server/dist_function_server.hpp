@@ -12,8 +12,7 @@ namespace Server {
 class DistFunctionServer : public DistFunction
 {
 public:
-  // Add a worker client
-  void AddClient(RemoteClient& client);
+  DistFunctionServer(mons::Network& network);
   // Training without an optimizer
   template<typename OptimizerType, typename... CallbackTypes>
   MONS_ELEM_TYPE Train(MONS_PREDICTOR_TYPE predictors,

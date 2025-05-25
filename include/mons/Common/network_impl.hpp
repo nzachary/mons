@@ -48,6 +48,11 @@ Network::Network(id_t id) : id(id)
   }
 }
 
+const std::vector<asio::ip::tcp::endpoint>& Network::GetEndpoints()
+{
+  return endpoints;
+}
+
 template <typename MessageType>
 void Network::Send(MessageType& message,
                    id_t machine)
@@ -83,8 +88,11 @@ std::optional<std::future<ResponseType>> Network
   message.BaseData.id = messageId;
 
   // Launch waiter
+  std::condition_variable outerCv;
+  std::mutex outerMtx;
+  bool outerCvPayload = false;
   std::future<ResponseType> waitable = std::async(std::launch::async,
-      [this, messageId, machine]()
+      [this, messageId, machine, &outerCv, &outerMtx, &outerCvPayload]()
   {
     ResponseType response;
     std::condition_variable cv;
@@ -106,12 +114,21 @@ std::optional<std::future<ResponseType>> Network
     
       return false;
     });
+    {
+      // Notify event registered
+      std::unique_lock outerLock(outerMtx);
+      outerCvPayload = true;
+      outerCv.notify_all();
+    }
     // Wait for event to trigger
     std::unique_lock lock(m);
     cv.wait(lock, [&]{ return cvPayload; });
     return response;
   });
 
+  // Wait for event to be registered
+  std::unique_lock lock(outerMtx);
+  outerCv.wait(lock, [&]{ return outerCvPayload; });
   // Send message
   Send(message, machine);
 

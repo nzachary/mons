@@ -31,12 +31,13 @@ public:
   // Returns a list of known endpoints
   const std::vector<asio::ip::tcp::endpoint>& GetEndpoints();
 private:
-  // Send some message using a socket.
+  // Send some message to another machine.
   template <typename MessageType>
   void Send(MessageType& data,
             id_t machine);
 
-  // Send some message using a socket and get a future containing a response message
+  // Send some message to another machine and get a future containing a response message
+  // `messageId` can be set to override the sent message ID
   template <typename MessageType, typename ResponseType>
   std::optional<std::future<ResponseType>>
   SendAwaitable(MessageType& data,
@@ -44,8 +45,7 @@ private:
                 uint64_t messageId = -1);
 
   // `RegisterEvent` Registers a callback to run when a message is recieved
-  // Register events this way instead of templates to allow passing lambda
-  // Return true from the callback if it should be deleted
+  // Return true from the callback if it should be deleted or false if it should remain
   #define REGISTER(Val) \
   void RegisterEvent(id_t from, std::function<bool(const Message::Val&)> callback);
   MONS_REGISTER_MESSAGE_TYPES
@@ -54,12 +54,10 @@ private:
   // Recieve messages from a peer until the connection is broken
   void StartRecieve(id_t peer);
   // Parse network config from `network_config.txt`
-  // Format is [ID];[IP];[PORT]
+  // Format is ID;IP;PORT
   void ParseNetworkConfig();
   // Add a machine with an endpoint and ID
   void AddMachine(const asio::ip::tcp::endpoint& endpoint, id_t machine);
-  // Add a machine to `connected` if it isn't already being tracked
-  void AddUniqueConnected(id_t machine);
 
   // `allCallbacks[MessageType]` constains a list of all callbacks for MessageType
   // `PropagateMessage` will call all of the enabled callbacks for the message type

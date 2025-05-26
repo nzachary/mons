@@ -14,8 +14,10 @@ namespace mons {
 class DistFunction
 {
 public:
+  template <typename... Args>
+  DistFunction(Args&&... args) : function(args...) {}
   // Get the underlying function
-  MONS_FUNCTION_TYPE& GetFunction() { return function.Get(); };
+  MONS_FUNCTION_TYPE& GetFunction() { return function.Get(); }
 protected:
   // Function this is wrapped around
   FunctionAccessor function;

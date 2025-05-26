@@ -25,6 +25,8 @@ private:
                        const size_t batchSize);
 
   void Shuffle();
+
+  bool isInit = false;
 };
 
 } // namespace Server

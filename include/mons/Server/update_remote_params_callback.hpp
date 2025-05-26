@@ -1,5 +1,5 @@
 /*
- * Callback to update model parameters on the remote client
+ * Callback to update model parameters on the remote clients
  */
 #ifndef MONS_SERVER_UPDATE_REMOTE_PARAMS_CALLBACK_HPP
 #define MONS_SERVER_UPDATE_REMOTE_PARAMS_CALLBACK_HPP

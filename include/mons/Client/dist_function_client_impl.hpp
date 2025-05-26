@@ -14,7 +14,7 @@ DistFunctionClient
   {
     MONS_PREDICTOR_TYPE predictors;
     Message::Tensor::GetTensor(predictors, message.TensorData);
-    function.SetPredictors(predictors);
+    function.SetPredictors(std::move(predictors));
 
     // Respond to server
     Message::OperationStatus status;
@@ -28,7 +28,7 @@ DistFunctionClient
   {
     MONS_RESPONSE_TYPE responses;
     Message::Tensor::GetTensor(responses, message.TensorData);
-    function.SetResponses(responses);
+    function.SetResponses(std::move(responses));
 
     // Respond to server
     Message::OperationStatus status;
@@ -42,7 +42,7 @@ DistFunctionClient
   {
     MONS_WEIGHT_TYPE weights;
     Message::Tensor::GetTensor(weights, message.TensorData);
-    function.SetWeights(weights);
+    function.SetWeights(std::move(weights));
 
     // Respond to server
     Message::OperationStatus status;
@@ -61,7 +61,6 @@ DistFunctionClient
     function._SetInputDims(data.inputDimensions);
     if (Message::Cereal::Decerealize(function.Get(), message.CerealData))
     {
-      function.Initalize(function.Get());
       status.OperationStatusData.status = 0;
     }
     else
@@ -75,6 +74,8 @@ DistFunctionClient
   });
   server.OnRecieve([&](const Message::UpdateParameters& message)
   {
+    isInit = false;
+
     Message::OperationStatus status;
     status.BaseData.responseTo = message.BaseData.id;
     status.OperationStatusData.status = 0;
@@ -97,7 +98,12 @@ DistFunctionClient
   });
   server.OnRecieve([&](const Message::EvaluateWithGradient& message)
   {
-    // Evaluate with gradient
+    if (!isInit)
+    {
+      isInit = true;
+      function.Initalize();
+    }
+    // Get arguments
     MONS_MAT_TYPE parameters, gradient;
     Message::Tensor::GetTensor(parameters, message.TensorData);
 
@@ -105,10 +111,7 @@ DistFunctionClient
     begin = message.EvaluateWithGradientData.begin;
     batchSize = message.EvaluateWithGradientData.batchSize;
 
-    // Check if we're evaluating with more data than we actually have
-    size_t nCols = function.Get().NumFunctions();
-    assert(begin + batchSize <= nCols);
-
+    // Do the actual evaluating with gradient
     double obj = EvaluateWithGradient(parameters, begin, gradient, batchSize);
 
     // Return the result

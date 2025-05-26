@@ -45,41 +45,23 @@ public:
                        MONS_MAT_TYPE& gradient,
                        const size_t batchSize);
   
-  size_t NumFunctions() const;
+  size_t NumFunctions() const { return function.Get().NumFunctions(); }
   
   void Shuffle();
 
-  MONS_MAT_TYPE& Parameters() { return function.Get().Parameters(); };
+  MONS_MAT_TYPE& Parameters() { return function.Get().Parameters(); }
 private:
   // Utility functions
-  // Set predictors, responses, and weights
-  void ResetData(MONS_PREDICTOR_TYPE predictors,
-                 MONS_RESPONSE_TYPE responses,
-                 MONS_WEIGHT_TYPE weights = MONS_WEIGHT_TYPE());
-  
-  // Attempts to make an alias with specified cols
-  template <typename T>
-  void MakeAliasCols(T& out, T& in, size_t startCol, size_t endCol,
-                     const typename std::enable_if_t<IsVector<T>::value>* = 0);
-  template <typename T>
-  void MakeAliasCols(T& out, T& in, size_t startCol, size_t endCol,
-                     const typename std::enable_if_t<IsMatrix<T>::value>* = 0);
-  template <typename T>
-  void MakeAliasCols(T& out, T& in, size_t startCol, size_t endCol,
-                     const typename std::enable_if_t<IsCube<T>::value>* = 0);
-
-  // Splits `data` into `n` aliases, split over columns
-  template <typename DataType>
-  std::vector<DataType> Split(DataType& data, size_t n);
+  // Set predictors, responses, and weights on a remote client
+  void SendData(MONS_PREDICTOR_TYPE& predictors,
+                 MONS_RESPONSE_TYPE& responses,
+                 MONS_WEIGHT_TYPE& weights);
 
   // List of known clients
   std::vector<std::reference_wrapper<RemoteClient>> clients;
 
   // List of clients that have been initalized
   std::vector<std::reference_wrapper<RemoteClient>> initalizedClients;
-
-  // Number of functions since we don't hold on to training data
-  size_t numFunctions;
 };
 
 } // namespace Server

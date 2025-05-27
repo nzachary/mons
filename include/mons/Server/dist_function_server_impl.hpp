@@ -75,10 +75,11 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
   message.SetInputDimension(function.Get().InputDimensions());
   for (RemoteClient& client : clients)
   {
-    if (client.SendOpWait(message) == 0)
-    {
+    int result = client.SendOpWait(message, 5);
+    if (result == 0)
       initalizedClients.push_back(client);
-    }
+    else
+      Log::Error("Connection to worker timed out");
   }
   // Send data
   SendData(predictors, responses, weights);
@@ -186,7 +187,7 @@ MONS_ELEM_TYPE DistFunctionServer
           MONS_MAT_TYPE responseGradient;
           Message::Gradient gradientResp = responses[i].get();
           Message::Tensor::GetTensor(responseGradient, gradientResp.TensorData);
-          obj += gradientResp.GradientData.objective;
+          obj += gradientResp.GradientData.objective / responses.size();
           gradient += responseGradient;
         }
         else

@@ -12,9 +12,8 @@
 #include "../config.hpp"
 #include "../version.hpp"
 
-#define QUOTE(v) #v
-#define STRINGIFY(v) QUOTE(v)
-#define STRINGIFY2(v) STRINGIFY(v)
+#define QUOTE(...) #__VA_ARGS__
+#define STRINGIFY(...) QUOTE(__VA_ARGS__)
 
 namespace mons {
 namespace Private {

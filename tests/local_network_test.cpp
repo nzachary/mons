@@ -59,11 +59,12 @@ int main()
 {
   CreateNetworkConfig();
 
-  // Initialize remote0
+  // Initialize connection to server
   // Do this asynchronously since `RemoteClient::Connect` (which the constructor calls) blocks
   std::future a1 = std::async(std::launch::async,([](){
     mons::RemoteClient::Get(mons::Network::Get(1), 0);
-  })); 
+  }));
+  // Connect to client
   mons::RemoteClient& remote1 = mons::RemoteClient::Get(mons::Network::Get(0), 1);
   a1.wait();
   mons::RemoteClient& remote0 = mons::RemoteClient::Get(mons::Network::Get(1), 0);

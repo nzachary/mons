@@ -1,3 +1,7 @@
+/*
+ * Tests to make sure that the integrity a message is preserved after
+ * serializing and deserializing
+ */
 
 #include "../include/mons.hpp"
 

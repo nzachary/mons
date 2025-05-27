@@ -30,6 +30,7 @@ link_libraries(cereal::cereal)
 
 # Tests
 add_executable(message-tests "${PROJECT_SOURCE_DIR}/tests/message_serialization_test.cpp")
+add_executable(network-tests "${PROJECT_SOURCE_DIR}/tests/local_network_test.cpp")
 
 # Examples
 add_executable(ffn-server "${PROJECT_SOURCE_DIR}/examples/FFN/server.cpp")

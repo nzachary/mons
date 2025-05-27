@@ -54,6 +54,8 @@ DistFunctionClient
   });
   server.OnRecieve([&](const Message::UpdateFunction& message)
   {
+    isInit = false;
+
     Message::OperationStatus status;
     status.BaseData.responseTo = message.BaseData.id;
 
@@ -74,15 +76,17 @@ DistFunctionClient
   });
   server.OnRecieve([&](const Message::UpdateParameters& message)
   {
-    isInit = false;
-
     Message::OperationStatus status;
     status.BaseData.responseTo = message.BaseData.id;
     status.OperationStatusData.status = 0;
 
     MONS_MAT_TYPE params;
-    Message::Tensor::GetTensor(function.Get().Parameters(),
-        message.TensorData);
+    Message::Tensor::GetTensor(params, message.TensorData);
+    assert(params.n_elem == function.Get().Parameters().n_elem);
+    for (size_t i = 0; i < params.n_elem; i++)
+    {
+      function.Get().Parameters()[i] = params[i];
+    }
 
     server.Send(status);
 

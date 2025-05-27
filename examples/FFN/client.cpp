@@ -9,7 +9,9 @@ int main(int argc, char* argv[])
 {
   int id;
   if (argc == 1)
-    id = std::stoi(argv[0]);
+    id = 1;
+  else if (argc == 2)
+    id = std::stoi(argv[1]);
   else
   {
     std::printf("Usage: ./ffn-client {ID}\n");

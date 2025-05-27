@@ -18,9 +18,9 @@ public:
   }
 
   template<typename OptimizerType, typename FunctionType, typename MatType>
-  void BeginOptimization(OptimizerType& optimizer,
-                         FunctionType& function,
-                         MatType& /* coordinates */)
+  void StepTaken(OptimizerType& optimizer,
+                 FunctionType& function,
+                 MatType& /* coordinates */)
   {
     Message::UpdateParameters message;
     Message::Tensor::SetTensor(function.Parameters(), message.TensorData);

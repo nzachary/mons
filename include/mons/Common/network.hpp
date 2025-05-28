@@ -29,7 +29,7 @@ public:
   Network(id_t id);
 
   // Returns a list of known endpoints
-  const std::vector<asio::ip::tcp::endpoint>& GetEndpoints();
+  const std::map<id_t, asio::ip::tcp::endpoint>& GetEndpoints() const;
 private:
   // Send some message to another machine.
   template <typename MessageType>
@@ -56,8 +56,6 @@ private:
   // Parse network config from `network_config.txt`
   // Format is ID;IP;PORT
   void ParseNetworkConfig();
-  // Add a machine with an endpoint and ID
-  void AddMachine(const asio::ip::tcp::endpoint& endpoint, id_t machine);
 
   // `allCallbacks[MessageType]` constains a list of all callbacks for MessageType
   // `PropagateMessage` will call all of the enabled callbacks for the message type
@@ -82,7 +80,7 @@ private:
   // counting up in the order of connection.
   id_t id = NO_ID;
   // Network endpoints, index is equal to endpoint machine's ID.
-  std::vector<asio::ip::tcp::endpoint> endpoints;
+  std::map<id_t, asio::ip::tcp::endpoint> endpoints;
   // Message ID counter
   uint64_t idCounter = 1;
 

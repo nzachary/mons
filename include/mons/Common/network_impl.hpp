@@ -28,8 +28,6 @@ Network& Network::Get(id_t id)
 
 Network::Network(id_t id) : id(id)
 {
-  context.run();
-
   ParseNetworkConfig();
 
   // Allow connections to local machine from any address
@@ -41,14 +39,14 @@ Network::Network(id_t id) : id(id)
   // Initalize sockets
   for (size_t remote = 0; remote < endpoints.size(); remote++)
   {
+    // These sockets aren't connected, that is done by `RemoteClient`
     std::shared_ptr<Socket> socket = std::make_shared<Socket>
         (endpoints[id], endpoints[remote]);
     sockets.push_back(socket);
-    // Don't initalize connections, that is done is `RemoteClient`
   }
 }
 
-const std::vector<asio::ip::tcp::endpoint>& Network::GetEndpoints()
+const std::map<id_t, asio::ip::tcp::endpoint>& Network::GetEndpoints() const
 {
   return endpoints;
 }
@@ -82,7 +80,7 @@ std::optional<std::future<ResponseType>> Network
     Log::Error("Cannot send - not connected");
     return std::optional<std::future<ResponseType>>(std::nullopt);
   }
-  // Set message ID
+  // Set message ID if it isn't already set
   if (messageId == (uint64_t)-1)
     messageId = idCounter++;
   message.BaseData.id = messageId;
@@ -163,7 +161,7 @@ void Network::StartRecieve(id_t peer)
     Message::Base::BaseDataStruct header;
     Message::Base::SerializeHeader(header, buf, false);
   
-    // Create a shared_ptr with the correct underlying class
+    // Create a polymorphic pointer using the messageType
     std::shared_ptr<Message::Base> message(nullptr);
     #define REGISTER(Val) case Message::MessageTypes::Val: \
         message = std::make_shared<Message::Val>(); break;
@@ -172,16 +170,11 @@ void Network::StartRecieve(id_t peer)
       MONS_REGISTER_MESSAGE_TYPES
     }
     #undef REGISTER
-    if (!message)
-    {
-      Log::Error("Error parsing message type");
-      continue;
-    }
   
-    // Write the header that was decoded earlier into message
-    message->BaseData = header;
+    // Write the header into message
+    message->BaseData = std::move(header);
 
-    // Call type's `Deserialize`
+    // Deserialize the rest of the message
     size_t bytes = message->Deserialize(buf);
     if (bytes != buf.data.size())
     {
@@ -189,10 +182,10 @@ void Network::StartRecieve(id_t peer)
       continue;
     }
 
-    // Call `PropagateMessage`
+    // Call the callbacks associated with the message
     #define REGISTER(Val) case Message::MessageTypes::Val: \
         PropagateMessage(*(Message::Val*)message.get()); break;
-    switch (header.messageType)
+    switch (message->BaseData.messageType)
     {
       MONS_REGISTER_MESSAGE_TYPES
     }
@@ -200,7 +193,6 @@ void Network::StartRecieve(id_t peer)
   }
 }
 
-// Parse network config
 void Network::ParseNetworkConfig()
 {
   std::ifstream config;
@@ -209,6 +201,7 @@ void Network::ParseNetworkConfig()
   {
     // Read file line by line
     std::string line;
+    size_t lineNum = 0;
     while (std::getline(config, line))
     {
       // Skip line if it starts with a '#' or is blank
@@ -228,10 +221,10 @@ void Network::ParseNetworkConfig()
 
       // Verify line has correct number of parts
       if (parts.size() != 3)
-        Log::FatalError("Failed to parse network config line: \"" +
-            line + "\".");
+        Log::FatalError("Line does not have 3 parts (ID, ip, port): \"" +
+            line + "\"");
       
-      // Parse
+      // Parse parts of the line
       uint64_t endpointId;
       uint16_t port;
       asio::ip::address ip;
@@ -241,7 +234,8 @@ void Network::ParseNetworkConfig()
       }
       catch (...)
       {
-        Log::Error("Failed to parse network ID: \"" + parts[0] + "\".");
+        Log::Error("Failed to parse ID: \"" + parts[0] + "\" at line " +
+            std::to_string(lineNum));
       }
       try
       {
@@ -249,14 +243,16 @@ void Network::ParseNetworkConfig()
       }
       catch (...)
       {
-        Log::Error("Failed to parse port: \"" + parts[2] + "\".");
+        Log::Error("Failed to parse port: \"" + parts[2] + "\" at line " +
+            std::to_string(lineNum));
       }
       asio::error_code ec;
       ip = asio::ip::make_address(parts[1], ec);
 
       // Add endpoint
       asio::ip::tcp::endpoint endpoint(ip, port);
-      AddMachine(endpoint, endpointId);
+      endpoints[endpointId] = asio::ip::tcp::endpoint(endpoint);
+      lineNum++;
     }
 
     if (config.bad())
@@ -269,15 +265,6 @@ void Network::ParseNetworkConfig()
   {
     Log::FatalError("Failed to open network config.");
   }
-}
-
-void Network::AddMachine(const asio::ip::tcp::endpoint& endpoint, id_t machine)
-{
-  if (machine >= endpoints.size())
-  {
-    endpoints.resize(machine + 1);
-  }
-  endpoints[machine] = asio::ip::tcp::endpoint(endpoint);
 }
 
 #define Q(v) #v

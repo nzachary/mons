@@ -16,8 +16,10 @@ public:
   // Internal constructor. Use `Get` instead
   RemoteClient(Network& network, id_t id);
 
+  // Connect to the machine this is associated with
   bool Connect();
 
+  // Checks if the connection is up
   bool IsConnected();
 
   // Send a message to client

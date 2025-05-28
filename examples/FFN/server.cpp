@@ -9,9 +9,10 @@ int main()
 
   // Set up FFN
   auto& ffn = workServer.GetFunction();
-  ffn.Add<mlpack::Linear>(50);
-  ffn.Add<mlpack::Linear>(50);
-  ffn.Add<mlpack::Linear>(50);
+  ffn.Add<mlpack::Linear>(1024);
+  ffn.Add<mlpack::ReLU>();
+  ffn.Add<mlpack::Linear>(1024);
+  ffn.Add<mlpack::ReLU>();
   ffn.Add<mlpack::Linear>(1);
   ffn.InputDimensions() = {2};
 
@@ -28,7 +29,7 @@ int main()
 
   // Start training
   ens::Adam adam;
-  adam.MaxIterations() = 500 * 50;
+  adam.MaxIterations() = 500 * 100;
   adam.BatchSize() = 100;
   adam.StepSize() = 1e-6;
 

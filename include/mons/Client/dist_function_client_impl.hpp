@@ -96,7 +96,7 @@ DistFunctionClient
   // Register functions that can be remotely called
   server.OnRecieve([&](const Message::Shuffle& message)
   {
-    Shuffle();
+    function.Get().Shuffle();
 
     return false;
   });
@@ -116,7 +116,8 @@ DistFunctionClient
     batchSize = message.EvaluateWithGradientData.batchSize;
 
     // Do the actual evaluating with gradient
-    double obj = EvaluateWithGradient(parameters, begin, gradient, batchSize);
+    double obj = function.Get().EvaluateWithGradient(parameters, begin,
+        gradient, batchSize);
 
     // Return the result
     Message::Gradient gradientMessage;
@@ -128,20 +129,6 @@ DistFunctionClient
 
     return false;
   });
-}
-
-MONS_ELEM_TYPE DistFunctionClient
-::EvaluateWithGradient(const MONS_MAT_TYPE& parameters,
-                     const size_t begin,
-                     MONS_MAT_TYPE& gradient,
-                     const size_t batchSize)
-{
-  return function.Get().EvaluateWithGradient(parameters, begin, gradient, batchSize);
-}
-
-void DistFunctionClient::Shuffle()
-{
-  function.Get().Shuffle();
 }
 
 } // namespace Client

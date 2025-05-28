@@ -95,7 +95,7 @@ size_t GetTypeSize()
   return GetTypeSize(num);
 }
 
-#undef ITERATE_TYPES
+#undef REGISTER_TYPES
 
 } // namespace mons
 

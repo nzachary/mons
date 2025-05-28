@@ -25,8 +25,6 @@ RemoteClient& RemoteClient::Get(Network& network, id_t id)
 
 RemoteClient::RemoteClient(Network& network, id_t id) : id(id), net(&network)
 {
-  if (!Connect())
-    Log::Error("Error connecting to client " + std::to_string(id));
 }
 
 bool RemoteClient::Connect()
@@ -54,6 +52,7 @@ bool RemoteClient::Connect()
     auto returnInfo = SendAwaitable<Message::ConnectInfo,
         Message::ConnectInfo>(message, 0);
     // Check if config matches
+    // See `config_hash.hpp`
     if (!returnInfo.has_value())
     {
       Log::Error("Error sending configuration info");
@@ -70,7 +69,7 @@ bool RemoteClient::Connect()
       else
       {
         if (returnInfo->get().ConnectInfoData.config == CONFIG_HASH)
-          return true; // Config matches
+          return true; // Config matches - connection is good
         else
         {
           Log::Error("Configuration mismatch");

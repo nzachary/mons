@@ -3,6 +3,8 @@
 
 #include "socket.hpp"
 
+#include <thread>
+
 namespace mons {
 
 Socket::Socket(asio::ip::tcp::endpoint local,
@@ -31,11 +33,21 @@ bool Socket::Listen()
 {
   std::unique_lock sl(sm);
   std::unique_lock rl(rm);
-  Log::Debug("Starting listener on port " + std::to_string(initLocal.port()));
   asio::error_code ec;
   // Create and accept sockets until we get a connection from `from`
-  std::unique_ptr<asio::ip::tcp::socket> connectionSocket =
-      AcceptFrom(initLocal, initRemote, *_context);
+  Log::Debug("Listening for connection on port " +
+      std::to_string(initLocal.port()));
+  std::unique_ptr<asio::ip::tcp::socket> connectionSocket;
+  try
+  {
+    // `AcceptFrom` blocks until it accepts
+    connectionSocket = AcceptFrom(initLocal, initRemote, *_context);
+  }
+  catch (...)
+  {
+    Log::Error("Failed to open listener");
+    return false;
+  }
 
   Log::Debug("Recieved connection request");
 
@@ -57,7 +69,8 @@ bool Socket::Listen()
   // TODO: better timing
   // If the listener isn't ready when connecting client recieves the new port,
   // 1) The incoming connection is refused and 2) Listener is stuck waiting
-  usleep(1000);
+  // This needs to wait until `AcceptFrom` starts the acceptor
+  std::this_thread::wait_for(std::chrono::milliseconds(10));
 
   // Send port of socket to peer so it can connect to the new socket
   MessageBuffer buf(0);
@@ -66,7 +79,7 @@ bool Socket::Listen()
   if (ec)
     return false;
 
-  // Wait for connection connection
+  // Wait for connection
   acceptThread.join();
   return true;
 }
@@ -83,12 +96,13 @@ bool Socket::Connect(size_t retry)
   for (size_t i = 0; i < retry; i++)
   {
     ec.clear();
+    // Create a temporary socket to send a connection request
     std::unique_ptr<asio::ip::tcp::socket> tempSocket =
         std::make_unique<asio::ip::tcp::socket>(*_context);
     tempSocket->connect(initRemote, ec);
     if (ec)
       continue;
-    
+
     // Recieve new port to establish a more permanent connection on
     MessageBuffer buf(0);
     SocketRecieve(buf, *tempSocket, ec);
@@ -122,6 +136,7 @@ void Socket::Disconnect()
 {
   std::unique_lock sl(sm);
   std::unique_lock rl(rm);
+  _socket->close();
   _socket.reset();
   _socket = std::make_unique<asio::ip::tcp::socket>(nullptr);
 }

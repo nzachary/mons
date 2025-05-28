@@ -17,15 +17,6 @@ public:
   // Accepts a client that is used to communicate with the main server
   DistFunctionClient(RemoteClient& serverRemote);
 private:
-  // Remotely callable functions
-  MONS_ELEM_TYPE
-  EvaluateWithGradient(const MONS_MAT_TYPE& parameters,
-                       const size_t begin,
-                       MONS_MAT_TYPE& gradient,
-                       const size_t batchSize);
-
-  void Shuffle();
-
   bool isInit = false;
 };
 

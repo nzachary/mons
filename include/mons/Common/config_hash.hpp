@@ -47,7 +47,7 @@ uint32_t GetConfigHash()
     for (size_t j = 0; j < stepWidth; j++)
     {
       char byte = confStr[i * numSteps + j];
-      res ^ (byte << j * 8);
+      res = res ^ ((decltype(res))byte << j * 8);
     }
   }
 

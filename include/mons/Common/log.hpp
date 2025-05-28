@@ -7,6 +7,8 @@
 #include <string>
 #include <iostream>
 
+#include "../config.hpp"
+
 namespace mons {
 
 class Log
@@ -44,7 +46,7 @@ private:
   // Write a message to stream
   static void WriteMessage(const std::string& message)
   {
-    std::cout << message << std::endl;
+    MONS_LOG_STREAM << message << std::endl;
   }
 };
 

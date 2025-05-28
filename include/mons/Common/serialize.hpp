@@ -21,26 +21,20 @@ struct MessageBuffer {
   size_t processed = 0;
 
   MessageBuffer(size_t size) : data(size) {}
-  // Expect a number of bytes written or read and optionally throw
-  void Expect(size_t n, bool thr) {
+  // Expect a number of bytes written or read and optionally throw if it doesn't match
+  void Expect(size_t n, bool fatal) {
     if (n != processed)
     {
-      Log::Error("Unexpected number of bytes read or written");
-      if (thr)
-        throw std::runtime_error("Unexpected number of bytes");
+      if (fatal)
+        Log::FatalError("Unexpected number of bytes read or written");
+      else
+        Log::Error("Unexpected number of bytes read or written");
     }
     processed = 0;
   }
 };
 
 namespace Private {
-
-enum DeserializeError {
-  ERROR_BUFFER_OVERRUN
-};
-
-// This is set if there is an error while deserializing
-size_t deserializeError = 0;
 
 // Reverses `arr` if the system does not use big endian.
 void _ToBigEndian(char* arr, size_t n)
@@ -97,7 +91,6 @@ void _DeserializePrivate(MessageBuffer& buffer,
   size_t end = buffer.deserializePtr + sizeof(T);
   if (buffer.data.size() < end)
   {
-    deserializeError = DeserializeError::ERROR_BUFFER_OVERRUN;
     return;
   }
   // Write data
@@ -142,20 +135,6 @@ struct HasSerialSpecialization
 };
 
 } // namespace Private
-
-// Returns true if there was an error while resetting the error flag
-bool CheckDeserializeError(size_t& error)
-{
-  error = Private::deserializeError;
-  Private::deserializeError = 0;
-  return (error != 0);
-}
-
-bool CheckDeserializeError()
-{
-  size_t t;
-  return CheckDeserializeError(t);
-}
 
 // Serialize or deserialize T from a buffer
 // If serializing, the buffer will be automatically extended

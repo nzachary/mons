@@ -101,9 +101,7 @@ private:
   
   // Temporary storage for data until the function is initalized
   MONS_PREDICTOR_TYPE predictors;
-
   MONS_RESPONSE_TYPE responses;
-
   MONS_WEIGHT_TYPE weights;
 
   friend class DistFunctionClient;

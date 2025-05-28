@@ -25,6 +25,7 @@ RemoteClient& RemoteClient::Get(Network& network, id_t id)
 
 RemoteClient::RemoteClient(Network& network, id_t id) : id(id), net(&network)
 {
+  Connect();
 }
 
 bool RemoteClient::Connect()

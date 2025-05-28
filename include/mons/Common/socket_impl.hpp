@@ -70,7 +70,7 @@ bool Socket::Listen()
   // If the listener isn't ready when connecting client recieves the new port,
   // 1) The incoming connection is refused and 2) Listener is stuck waiting
   // This needs to wait until `AcceptFrom` starts the acceptor
-  std::this_thread::wait_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   // Send port of socket to peer so it can connect to the new socket
   MessageBuffer buf(0);

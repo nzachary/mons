@@ -88,6 +88,13 @@ bool RemoteClient::IsConnected()
 }
 
 template <typename MessageType>
+void RemoteClient::Send(SafeRef<MessageType>& message)
+{
+  auto lock = message.Lock();
+  return Send(message.Value(), id);
+}
+
+template <typename MessageType>
 void RemoteClient::Send(MessageType& message)
 {
   net->Send(message, id);
@@ -95,9 +102,24 @@ void RemoteClient::Send(MessageType& message)
 
 template <typename MessageType, typename ResponseType>
 std::optional<std::future<ResponseType>> RemoteClient
+::SendAwaitable(SafeRef<MessageType>& message, uint64_t messageId)
+{
+  auto lock = message.Lock();
+  return SendAwaitable(message.Value(), messageId);
+}
+
+template <typename MessageType, typename ResponseType>
+std::optional<std::future<ResponseType>> RemoteClient
 ::SendAwaitable(MessageType& message, uint64_t messageId)
 {
   return net->SendAwaitable<MessageType, ResponseType>(message, id, messageId);
+}
+
+template <typename MessageType>
+int RemoteClient::SendOpWait(SafeRef<MessageType>& data, double timeout)
+{
+  auto lock = data.Lock();
+  return SendOpWait(data.Value(), timeout);
 }
 
 template <typename MessageType>

@@ -73,9 +73,10 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
   Message::UpdateFunction message;
   Message::Cereal::Cerealize(function.Get(), message.CerealData);
   message.SetInputDimension(function.Get().InputDimensions());
+  SafeRef<Message::UpdateFunction> msgRef(message);
   clientIterator.Iterate([&](RemoteClient& client, size_t /* i */)
   {
-    int result = client.SendOpWait(message, -1);
+    int result = client.SendOpWait(msgRef, -1);
     if (result != 0)
       Log::Error("Connection to worker timed out");
   });
@@ -102,16 +103,21 @@ void DistFunctionServer
   Message::Tensor::SetTensor(responses, responsesMessage.TensorData);
   Message::Tensor::SetTensor(weights, weightsMessage.TensorData);
 
+  // Thread safe references for Iterate
+  SafeRef<Message::UpdatePredictors> predictorsRef(predictorsMessage);
+  SafeRef<Message::UpdateResponses> responsesRef(responsesMessage);
+  SafeRef<Message::UpdateWeights> weightsRef(weightsMessage);
+
   // Send to clients
   clientIterator.TryConnect();
   clientIterator.Iterate([&](RemoteClient& client, size_t /* i */)
   {
     if (predictors.n_elem > 0)
-      client.SendOpWait(predictorsMessage);
+      client.SendOpWait(predictorsRef);
     if (responses.n_elem > 0)
-      client.SendOpWait(responsesMessage);
+      client.SendOpWait(responsesRef);
     if (weights.n_elem > 0)
-      client.SendOpWait(weightsMessage);
+      client.SendOpWait(weightsRef);
   });
 }
 

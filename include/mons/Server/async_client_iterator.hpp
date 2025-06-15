@@ -21,6 +21,8 @@ public:
   size_t NumConnected();
 
   // Iterate over connected clients. Blocks until the function has completed.
+  // Several instances of function will be run concurrently, be sure it is
+  // thread safe.
   void Iterate(std::function<void(RemoteClient&, size_t)> function);
 private:
   // All available clients

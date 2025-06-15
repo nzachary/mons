@@ -9,6 +9,7 @@
 #include "Common/log.hpp"
 #include "Common/network.hpp"
 #include "Common/remote_client.hpp"
+#include "Common/safe_ref.hpp"
 #include "Common/serialize.hpp"
 #include "Common/socket.hpp"
 #include "Common/Message/message_types.hpp"

@@ -5,6 +5,7 @@
 #define MONS_COMMON_REMOTE_CLIENT_HPP
 
 #include "network.hpp"
+#include "safe_ref.hpp"
 
 namespace mons {
 
@@ -26,13 +27,30 @@ public:
   bool IsConnected();
 
   // Send a message to client
+  // Thread safe variant
+  template <typename MessageType>
+  void Send(SafeRef<MessageType>& message);
+
+  // Send a message to client
   template <typename MessageType>
   void Send(MessageType& message);
+
+  // Send a message to client and get a future containing a response message
+  // Thread safe variant
+  template <typename MessageType, typename ResponseType>
+  std::optional<std::future<ResponseType>>
+  SendAwaitable(SafeRef<MessageType>& data, uint64_t messageId = -1);
 
   // Send a message to client and get a future containing a response message
   template <typename MessageType, typename ResponseType>
   std::optional<std::future<ResponseType>>
   SendAwaitable(MessageType& data, uint64_t messageId = -1);
+
+  // Send a message and wait for a status to be returned
+  // If `timeout` is > 0, the function will time out after that many seconds
+  // Thread safe variant
+  template <typename MessageType>
+  int SendOpWait(SafeRef<MessageType>& data, double timeout = 15);
 
   // Send a message and wait for a status to be returned
   // If `timeout` is > 0, the function will time out after that many seconds

@@ -1,4 +1,6 @@
-
+/*
+ * Utility to get information about types
+ */
 #ifndef MONS_COMMON_ENUM_ELEM_MAP
 #define MONS_COMMON_ENUM_ELEM_MAP
 

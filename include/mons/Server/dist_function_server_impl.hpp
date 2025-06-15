@@ -12,7 +12,7 @@ DistFunctionServer::DistFunctionServer(mons::Network& network)
   auto& endpoints = network.GetEndpoints();
   for (size_t i = 1; i < endpoints.size(); i++)
   {
-    clients.push_back(RemoteClient::Get(network, i));
+    clientIterator.AddClient(RemoteClient::Get(network, i));
   }
 }
 
@@ -62,31 +62,29 @@ DistFunctionServer::Train(MONS_PREDICTOR_TYPE predictors,
                           OptimizerType& optimizer,
                           CallbackTypes&&... callbacks)
 {
-  initalizedClients.clear();
+  clientIterator.TryConnect();
   // Prepare function
   function.SetPredictors(predictors);
   function.SetResponses(responses);
   function.SetWeights(weights);
   function._SetInputDims(function.Get().InputDimensions());
   function.Initalize();
-  // Initalize clients
+  // Initalize clients with the function
   Message::UpdateFunction message;
   Message::Cereal::Cerealize(function.Get(), message.CerealData);
   message.SetInputDimension(function.Get().InputDimensions());
-  for (RemoteClient& client : clients)
+  clientIterator.Iterate([&](RemoteClient& client, size_t /* i */)
   {
-    int result = client.SendOpWait(message, 5);
-    if (result == 0)
-      initalizedClients.push_back(client);
-    else
+    int result = client.SendOpWait(message, -1);
+    if (result != 0)
       Log::Error("Connection to worker timed out");
-  }
+  });
   // Send data
   SendData(predictors, responses, weights);
   // Optimize
   const MONS_ELEM_TYPE out =
       optimizer.Optimize(*this, this->Parameters(),
-      UpdateRemoteParamsCallback(initalizedClients), callbacks...);
+      UpdateRemoteParamsCallback(clientIterator), callbacks...);
   return out;
 }
 
@@ -105,7 +103,8 @@ void DistFunctionServer
   Message::Tensor::SetTensor(weights, weightsMessage.TensorData);
 
   // Send to clients
-  for (RemoteClient& client : initalizedClients)
+  clientIterator.TryConnect();
+  clientIterator.Iterate([&](RemoteClient& client, size_t /* i */)
   {
     if (predictors.n_elem > 0)
       client.SendOpWait(predictorsMessage);
@@ -113,7 +112,7 @@ void DistFunctionServer
       client.SendOpWait(responsesMessage);
     if (weights.n_elem > 0)
       client.SendOpWait(weightsMessage);
-  }
+  });
 }
 
 MONS_ELEM_TYPE DistFunctionServer
@@ -128,85 +127,62 @@ MONS_ELEM_TYPE DistFunctionServer
   // Keep doing until the batch is done
   while (beginTemp < begin + batchSize)
   {
-    // Futures for responses from workers
-    std::vector<std::future<Message::Gradient>> responses;
-
     // Select only the clients that are good
-    std::vector<std::reference_wrapper<RemoteClient>> goodClients;
-    for (size_t i = 0; i < initalizedClients.size(); i++)
+    clientIterator.TryConnect();
+    size_t numConnected = clientIterator.NumConnected();
+    if (numConnected == 0)
     {
-      RemoteClient& client = initalizedClients[i];
-      // Try connect
-      if (!client.IsConnected())
-        client.Connect();
-      // Only add if connected
-      if (client.IsConnected())
-        goodClients.push_back(client);
-    }
-    if (goodClients.size() == 0)
-    {
-      Log::Error("No connected clients");
       sleep(10);
       continue;
     }
 
-    // Send batches to clients
-    for (size_t i = 0; i < goodClients.size(); i++)
+    // Get batch sizes
+    std::vector<size_t> begins(numConnected);
+    std::vector<size_t> nCols(numConnected);
+    for (size_t i = 0; i < numConnected; i++)
     {
-      // Split batch size into parts
-      size_t nCols = (batchSize - (beginTemp - begin)) / (goodClients.size() - i);
+      size_t cols = (batchSize - (beginTemp - begin)) / (numConnected - i);
+      begins[i] = beginTemp;
+      nCols[i] = cols;
+      beginTemp += cols;
+    }
+
+    std::mutex mutex;
+    // Send to each client
+    clientIterator.Iterate([&](RemoteClient& client, size_t i)
+    {
       Message::EvaluateWithGradient message;
       Message::Tensor::SetTensor(parameters, message.TensorData);
-      message.EvaluateWithGradientData.begin = beginTemp;
-      message.EvaluateWithGradientData.batchSize = nCols;
+      message.EvaluateWithGradientData.begin = begins[i];
+      message.EvaluateWithGradientData.batchSize = nCols[i];
   
       // Create future
-      auto future = goodClients[i].get().SendAwaitable
+      auto future = client.SendAwaitable
           <Message::EvaluateWithGradient, Message::Gradient>(message);
       if (future.has_value())
       {
-        responses.push_back(std::move(future.value()));
-        beginTemp += nCols;
-      }
-    }
+        MONS_MAT_TYPE responseGradient;
+        Message::Gradient gradientResp = future.value().get();
+        Message::Tensor::GetTensor(responseGradient, gradientResp.TensorData);
 
-    // Wait on all futures
-    arma::wall_clock clock;
-    clock.tic();
-    while (true)
-    {
-      // TODO: timeout the infinite loop
-      bool done = true;
-      for (size_t i = 0; i < responses.size(); i++)
-      {
-        if (!responses[i].valid())
-          continue;
-        if (responses[i].wait_for(std::chrono::seconds(1)) ==
-            std::future_status::ready)
-        {
-          MONS_MAT_TYPE responseGradient;
-          Message::Gradient gradientResp = responses[i].get();
-          Message::Tensor::GetTensor(responseGradient, gradientResp.TensorData);
-          obj += gradientResp.GradientData.objective / responses.size();
-          gradient += responseGradient;
-        }
-        else
-        {
-          done = false;
-        }
+        std::unique_lock lock(mutex);
+        obj += gradientResp.GradientData.objective;
+        gradient += responseGradient;
       }
-      if (done)
-        break;
-    }
+    });
   }
+
   return obj;
 }
 
 void DistFunctionServer::Shuffle()
 {
   Message::Shuffle message;
-  for (RemoteClient& client : initalizedClients)
+  clientIterator.TryConnect();
+  clientIterator.Iterate([&](RemoteClient& client, size_t /* i */)
+  {
     client.Send(message);
+  });
 }
 
 } // namespace Server

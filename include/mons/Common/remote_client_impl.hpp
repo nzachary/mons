@@ -101,7 +101,7 @@ std::optional<std::future<ResponseType>> RemoteClient
 }
 
 template <typename MessageType>
-int RemoteClient::SendOpWait(MessageType& data, double timeout, int error)
+int RemoteClient::SendOpWait(MessageType& data, double timeout)
 {
   std::optional<std::future<Message::OperationStatus>> status =
       SendAwaitable<MessageType, Message::OperationStatus>(data);
@@ -118,7 +118,7 @@ int RemoteClient::SendOpWait(MessageType& data, double timeout, int error)
     else
     {
       // Not ready (timed out)
-      return error;
+      return 2;
     }
   }
   else

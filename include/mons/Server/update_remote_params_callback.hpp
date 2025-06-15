@@ -4,6 +4,7 @@
 #ifndef MONS_SERVER_UPDATE_REMOTE_PARAMS_CALLBACK_HPP
 #define MONS_SERVER_UPDATE_REMOTE_PARAMS_CALLBACK_HPP
 
+#include "async_client_iterator.hpp"
 #include "../common.hpp"
 
 namespace mons {
@@ -12,8 +13,8 @@ namespace Server {
 class UpdateRemoteParamsCallback
 {
 public:
-  UpdateRemoteParamsCallback(std::vector<std::reference_wrapper<RemoteClient>>& clients)
-  : clients(clients)
+  UpdateRemoteParamsCallback(AsyncClientIterator& clientIterator)
+  : clientIterator(clientIterator)
   {
   }
 
@@ -24,14 +25,14 @@ public:
   {
     Message::UpdateParameters message;
     Message::Tensor::SetTensor(function.Parameters(), message.TensorData);
-    for (RemoteClient& client : clients)
+    clientIterator.get().Iterate([&](RemoteClient& client, size_t /* i */)
     {
       if (client.SendOpWait(message) != 0)
         Log::Error("Error while setting parameters");
-    }
+    });
   }
 private:
-  std::vector<std::reference_wrapper<RemoteClient>> clients;
+  std::reference_wrapper<AsyncClientIterator> clientIterator;
 };
 
 } // namespace Server

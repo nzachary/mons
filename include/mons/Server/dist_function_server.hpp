@@ -4,6 +4,7 @@
 #ifndef MONS_SERVER_DIST_FUNCTION_SERVER_HPP
 #define MONS_SERVER_DIST_FUNCTION_SERVER_HPP
 
+#include "async_client_iterator.hpp"
 #include "../common.hpp"
 
 namespace mons {
@@ -57,11 +58,8 @@ private:
                  MONS_RESPONSE_TYPE& responses,
                  MONS_WEIGHT_TYPE& weights);
 
-  // List of known clients
-  std::vector<std::reference_wrapper<RemoteClient>> clients;
-
-  // List of clients that have been initalized
-  std::vector<std::reference_wrapper<RemoteClient>> initalizedClients;
+  // Local client iterator.
+  AsyncClientIterator clientIterator;
 };
 
 } // namespace Server

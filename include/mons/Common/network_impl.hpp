@@ -81,9 +81,11 @@ std::optional<std::future<ResponseType>> Network
     return std::optional<std::future<ResponseType>>(std::nullopt);
   }
   // Set message ID if it isn't already set
-  if (messageId == (uint64_t)-1)
-    messageId = idCounter++;
-  message.BaseData.id = messageId;
+  {
+    std::unique_lock l(mutex);
+    if (messageId == (uint64_t)-1)
+      messageId = idCounter++;
+  }
 
   // Launch waiter
   std::condition_variable outerCv;
@@ -128,6 +130,7 @@ std::optional<std::future<ResponseType>> Network
   std::unique_lock lock(outerMtx);
   outerCv.wait(lock, [&]{ return outerCvPayload; });
   // Send message
+  message.BaseData.id = messageId;
   Send(message, machine);
 
   return waitable;

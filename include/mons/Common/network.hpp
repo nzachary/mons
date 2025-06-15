@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <memory> // std::shared_ptr
+#include <mutex>
 #include <map>
 #include <optional>
 
@@ -68,6 +69,9 @@ private:
 
   // Single `Network` instance per ID
   inline static std::map<id_t, Network> instances;
+
+  // Local mutex to avoid race conditions
+  std::mutex mutex;
 
   // asio execution context
   asio::io_context context;
